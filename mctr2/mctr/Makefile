@@ -108,6 +108,9 @@ ifeq ($(CLI), yes)
 endif
 	cp ttcn3_start $(BINDIR)
 	chmod +x $(BINDIR)/ttcn3_start
+ifeq ($(PLATFORM), WIN32)
+	echo "@echo $(SHELL) -c \"%~dp0\ttcn3_start\" %*" > $(BINDIR)/ttcn3_start.cmd
+endif
 
 Cli_main.cc: main.cc
 	@echo "#define CLI" > $@ && cat $< >> $@

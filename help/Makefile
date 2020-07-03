@@ -70,6 +70,9 @@ else
 	mkdir -p $(BINDIR)
 	cp ttcn3_help $(BINDIR)
 	chmod +x $(BINDIR)/ttcn3_help
+ifeq ($(PLATFORM), WIN32)
+	echo "@echo $(SHELL) -c \"%~dp0\ttcn3_help\" %*" > $(BINDIR)/ttcn3_help.cmd
+endif
 	mkdir -p $(HELPDIR)
 	cp $(MAIN_HTML_FILES) $(HELPDIR)
 	mkdir -p $(HELPDIR)/info

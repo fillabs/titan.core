@@ -164,6 +164,9 @@ else
 	cp tcov.xsd tcov.xsl $(INCDIR)
 	cp titanver $(BINDIR)
 	chmod a+x $(BINDIR)/titanver
+ifeq ($(PLATFORM), WIN32)
+	echo "@echo $(SHELL) -c \"%~dp0\titanver\" %*" > $(BINDIR)/titanver.cmd
+endif
 	$(RM) $(BINDIR)/ttcn3_compiler$(EXESUFFIX) \
 	$(BINDIR)/asn1_compiler$(EXESUFFIX) $(BINDIR)/makefilegen$(EXESUFFIX)
 	ln -s compiler$(EXESUFFIX) $(BINDIR)/ttcn3_compiler$(EXESUFFIX)
