@@ -460,12 +460,12 @@ static void usage()
     } else x##flag = true
 
 
-extern int ttcn3_debug;
-extern int asn1_yydebug;
+int ttcn3_debug;
+int asn1_yydebug;
 extern int pattern_yydebug;
 extern int pattern_unidebug;
-extern int rawAST_debug;
-extern int coding_attrib_debug;
+int rawAST_debug;
+int coding_attrib_debug;
 
 int main(int argc, char *argv[])
 {

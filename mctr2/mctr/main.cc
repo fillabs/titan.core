@@ -59,7 +59,7 @@
 #error "CLI must be defined"
 #endif
 
-extern int config_read_debug;
+int config_read_debug;
 
 /* ASCII ART STUFF */
 
