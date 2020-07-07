@@ -37,6 +37,10 @@ ifeq ($(CLI), yes)
     TARGETS += mctr_cli$(EXESUFFIX)
 endif
 
+ifneq ($(PLATFORM), WIN32)
+    SLINK := -s
+endif
+
 ORIGINATORS := main.cc
 
 GENERATED_SOURCES := Cli_main.cc
@@ -104,12 +108,12 @@ endif
 	mkdir -p $(BINDIR)
 	cp $(TARGETS) $(BINDIR)
 ifeq ($(CLI), yes)
-	ln -s mctr_cli$(EXESUFFIX) $(BINDIR)/mctr$(EXESUFFIX)
+	ln $(SLINK) mctr_cli$(EXESUFFIX) $(BINDIR)/mctr$(EXESUFFIX)
 endif
 	cp ttcn3_start $(BINDIR)
 	chmod +x $(BINDIR)/ttcn3_start
 ifeq ($(PLATFORM), WIN32)
-	echo "@echo $(SHELL) -c \"%~dp0\ttcn3_start\" %*" > $(BINDIR)/ttcn3_start.cmd
+	echo "@sh -c \"%~dp0\ttcn3_start\" %*" > $(BINDIR)/ttcn3_start.cmd
 endif
 
 Cli_main.cc: main.cc

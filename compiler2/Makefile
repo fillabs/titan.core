@@ -79,6 +79,10 @@ MANPAGES := compiler.1
 MAYBE_PDFS := $(MANPAGES:.1=.pdf)
 endif
 
+ifneq ($(PLATFORM), WIN32)
+    SLINK := -s
+endif
+
 PDFS := $(MANPAGES:.1=.pdf)
 
 COMPILER_SOURCES := encdec.c enum.c functionref.c record.c record_of.c union.c \
@@ -165,20 +169,20 @@ else
 	cp titanver $(BINDIR)
 	chmod a+x $(BINDIR)/titanver
 ifeq ($(PLATFORM), WIN32)
-	echo "@echo $(SHELL) -c \"%~dp0\titanver\" %*" > $(BINDIR)/titanver.cmd
+	echo "@sh -c \"%~dp0\titanver\" %*" > $(BINDIR)/titanver.cmd
 endif
 	$(RM) $(BINDIR)/ttcn3_compiler$(EXESUFFIX) \
 	$(BINDIR)/asn1_compiler$(EXESUFFIX) $(BINDIR)/makefilegen$(EXESUFFIX)
-	ln -s compiler$(EXESUFFIX) $(BINDIR)/ttcn3_compiler$(EXESUFFIX)
-	ln -s compiler$(EXESUFFIX) $(BINDIR)/asn1_compiler$(EXESUFFIX)
-	ln -s ttcn3_makefilegen$(EXESUFFIX) $(BINDIR)/makefilegen$(EXESUFFIX)
+	ln $(SLINK) compiler$(EXESUFFIX) $(BINDIR)/ttcn3_compiler$(EXESUFFIX)
+	ln $(SLINK) compiler$(EXESUFFIX) $(BINDIR)/asn1_compiler$(EXESUFFIX)
+	ln $(SLINK) ttcn3_makefilegen$(EXESUFFIX) $(BINDIR)/makefilegen$(EXESUFFIX)
 	mkdir -p $(MANDIR)/man1
 	cp $(MANPAGES) $(MANDIR)/man1
 	$(RM) $(MANDIR)/man1/ttcn3_compiler.1 $(MANDIR)/man1/asn1_compiler.1 \
 	$(MANDIR)/man1/makefilegen.1
-	ln -s compiler.1 $(MANDIR)/man1/ttcn3_compiler.1
-	ln -s compiler.1 $(MANDIR)/man1/asn1_compiler.1
-	ln -s ttcn3_makefilegen.1 $(MANDIR)/man1/makefilegen.1
+	ln $(SLINK) compiler.1 $(MANDIR)/man1/ttcn3_compiler.1
+	ln $(SLINK) compiler.1 $(MANDIR)/man1/asn1_compiler.1
+	ln $(SLINK) ttcn3_makefilegen.1 $(MANDIR)/man1/makefilegen.1
 endif
 
 # The compiler always links to OpenSSL (even without LICENSING)
