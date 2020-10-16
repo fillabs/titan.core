@@ -31,7 +31,6 @@
 #include "../mctr/MainController.h"
 
 #include <stdio.h>
-#include "../editline/libedit/src/editline/readline.h"
 #include <ctype.h>
 #include <string.h>
 #include <errno.h>
@@ -42,6 +41,8 @@
 #include "../../common/memory.h"
 #include "../../common/config_preproc.h"
 #include "../../core/DebugCommands.hh"
+
+#include <editline/readline.h>
 
 #define PROMPT "MC2> "
 #define CMTC_TEXT "cmtc"
@@ -372,7 +373,11 @@ int Cli::interactiveMode()
   // Read history from file, don't bother if it does not exist!
   read_history(ttcn3_history_filename);
   // Set our own command completion function
+#ifdef OLD_LIBEDIT
   rl_completion_entry_function = (Function*)completeCommand;
+#else
+  rl_completion_entry_function = completeCommand;
+#endif
   // Override rl_getc() in order to detect shell mode
   rl_getc_function = getcWithShellDetection;
 
