@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -189,7 +189,10 @@ namespace Ttcn {
         // is the same as the type of 'mtc' (which is given in 'runs on' clause)
       }
       return my_def->get_RunsOnType();
-    } else if (asstype == Common::Assignment::A_FUNCTION || asstype == Common::Assignment::A_ALTSTEP) {
+    } else if (asstype == Common::Assignment::A_FUNCTION ||
+               asstype == Common::Assignment::A_FUNCTION_RVAL ||
+               asstype == Common::Assignment::A_FUNCTION_RTEMP ||
+               asstype == Common::Assignment::A_ALTSTEP) {
       if (is_system) {
         return my_def->get_SystemType();
       } else {
@@ -5142,12 +5145,7 @@ error:
           "endpoint is unknown",
           ptb1 != NULL ? "second" : "first");
       }
-      if (config_op.parsed_params != NULL &&
-          ((cref1_is_system && ptb1 == NULL) ||
-           (cref2_is_system && ptb2 == NULL))) {
-        error("Cannot determine system component in `%s' operation with "
-          "`param' clause", get_stmt_name());
-      }
+      chk_map_params(cref1_is_system ? ptb1 : (cref2_is_system ? ptb2 : NULL));
       return;
     }
     if (cref1_is_tc || cref2_is_system) {
@@ -5217,30 +5215,33 @@ error:
         }
       }
     }
-    
-    if (config_op.parsed_params != NULL) {
-      if (cref1_is_system) {
-        config_op.fp_list = ptb1->get_map_parameters(statementtype == S_MAP);
-      }
-      else if (cref2_is_system) {
-        config_op.fp_list = ptb2->get_map_parameters(statementtype == S_MAP);
-      }
-      else {
-        error("Cannot determine system component in `%s' operation with "
-          "`param' clause", get_stmt_name());
-      }
-      if (config_op.fp_list != NULL) {
-        ActualParList* parlist = new ActualParList;
-        if (config_op.fp_list->fold_named_and_chk(config_op.parsed_params, parlist)) {
-          delete parlist;
-          delete config_op.parsed_params;
-          config_op.ap_list = NULL;
-        } else {
-          delete config_op.parsed_params;
-          parlist->set_fullname(get_fullname());
-          parlist->set_my_scope(my_sb);
-          config_op.ap_list = parlist;
-        }
+
+    chk_map_params(cref1_is_system ? ptb1 : (cref2_is_system ? ptb2 : NULL));
+  }
+
+  void Statement::chk_map_params(PortTypeBody* p_system_port)
+  {
+    if (config_op.parsed_params == NULL) {
+      return;
+    }
+    if (p_system_port != NULL) {
+      config_op.fp_list = p_system_port->get_map_parameters(statementtype == S_MAP);
+    }
+    else {
+      error("Cannot determine system component in `%s' operation with "
+        "`param' clause", get_stmt_name());
+    }
+    if (config_op.fp_list != NULL) {
+      ActualParList* parlist = new ActualParList;
+      if (config_op.fp_list->fold_named_and_chk(config_op.parsed_params, parlist)) {
+        delete parlist;
+        delete config_op.parsed_params;
+        config_op.ap_list = NULL;
+      } else {
+        delete config_op.parsed_params;
+        parlist->set_fullname(get_fullname());
+        parlist->set_my_scope(my_sb);
+        config_op.ap_list = parlist;
       }
     }
   }
@@ -6890,7 +6891,7 @@ error:
   {
     expression_struct expr;
     Code::init_expr(&expr);
-    ref_pard->generate_code_const_ref(&expr);
+    ref_pard->generate_code(&expr);
     str=Code::merge_free_expr(str, &expr);
     return str;
   }

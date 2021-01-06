@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -379,10 +379,10 @@ char* generate_raw_coding(char* src,
       "RAW_Force_Omit field_%d_force_omit(%d, force_omit, "
       "%s_descr_.raw->forceomit);\n"
 	    "int decoded_field_length = field_%s%s.RAW_decode(%s_descr_, "
-	      "p_buf, limit, local_top_order, TRUE, -1, ",
+	      "p_buf, limit, local_top_order, TRUE, %s, ",
       i, i, sdef->elements[i].typedescrname,
 	    sdef->elements[i].name, sdef->elements[i].isOptional ? "()" : "",
-	    sdef->elements[i].typedescrname);
+	    sdef->elements[i].typedescrname, repeatable?"1":"-1");
 	  if (repeatable)
             src = mputprintf(src, "field_map[%lu] == 0",
               (unsigned long) i);
@@ -3512,6 +3512,9 @@ char* generate_json_decoder(char* src, const struct_def* sdef)
     src = mputprintf(src,
       "{\n"
                // invalid field name
+      "        if (p_silent) {\n"
+      "          return JSON_ERROR_INVALID_TOKEN;\n"
+      "        }\n"
       "        JSON_ERROR(TTCN_EncDec::ET_INVAL_MSG, %sJSON_DEC_INVALID_NAME_ERROR, (int)name_len, fld_name);\n"
                // if this is set to a warning, skip the value of the field
       "        dec_len += p_tok.get_next_token(&j_token, NULL, NULL);\n"
@@ -4486,8 +4489,7 @@ void defRecordClass1(const struct_def *sdef, output_struct *output)
        "        break;\n"
        "      }\n"
        "    } else if(limit.has_token(ml)){\n"
-       "      int tl;\n"
-       "      if((tl=limit.match(p_buf,ml))==0){\n"
+       "      if(limit.match(p_buf,ml)==0){\n"
        "        sep_found=FALSE;\n"
        "        break;\n"
        "      }\n"
@@ -4558,8 +4560,7 @@ void defRecordClass1(const struct_def *sdef, output_struct *output)
       "        return decoded_length;\n"
       "      }\n"
       "    } else if(limit.has_token(ml)){\n"
-      "      int tl;\n"
-      "      if((tl=limit.match(p_buf,ml))==0){\n"
+      "      if(limit.match(p_buf,ml)==0){\n"
       "        sep_found=FALSE;\n"
       "        break;\n"
       "      }\n"
@@ -4762,8 +4763,7 @@ void defRecordClass1(const struct_def *sdef, output_struct *output)
           "        return decoded_length;\n"
           "      }\n"
           "    } else if(limit.has_token(ml)){\n"
-          "      int tl;\n"
-          "      if((tl=limit.match(p_buf,ml))==0){\n"
+          "      if(limit.match(p_buf,ml)==0){\n"
           "        sep_found=FALSE;\n"
           "        break;\n"
           "      }\n"
@@ -4786,14 +4786,14 @@ void defRecordClass1(const struct_def *sdef, output_struct *output)
       "  }\n"
       "  if(p_td.text->end_decode){\n"
       "    int tl;\n"
-          "      if((tl=p_td.text->end_decode->match_begin(p_buf))<0){\n"
-      "          if(no_err)return -1;\n"
-      "          TTCN_EncDec_ErrorContext::error"
+      "    if((tl=p_td.text->end_decode->match_begin(p_buf))<0){\n"
+      "      if(no_err)return -1;\n"
+      "      TTCN_EncDec_ErrorContext::error"
       "(TTCN_EncDec::ET_TOKEN_ERR, \"The specified token '%s'"
       " not found for '%s': \",(const char*)*(p_td.text->end_decode)"
       ",p_td.name);\n"
-      "          return decoded_length;\n"
-      "        }\n"
+      "      return decoded_length;\n"
+      "    }\n"
       "    decoded_length+=tl;\n"
       "    p_buf.increase_pos(tl);\n"
       "  }\n"

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -10,13 +10,11 @@
  *   Baranyi, Botond
  *
  ******************************************************************************/
-module JsonTypes {
+module JsonTypes1 {
 
 import from JsonData all;
 
 const integer c_imported_i :=11;
-
-type component MTC {}
 
 type enumerated Days { Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday };
 
@@ -208,194 +206,7 @@ type union AsnThing {
 
 type record of AsnThing AsnStuff;
 
-type record OptionalUnions {
-  charstring dummy,
-  Thing uniTtcn optional,
-  AsnThing uniAsn optional
-} with {
-  variant(uniTtcn) "omit as null";
-  variant(uniAsn) " omit as null ";
-}
-
-type record MetainfoRecord {
-  integer num,
-  charstring str
-}
-with {
-  variant(str) "JSON: metainfo for unbound";
-}
-
-type set MetainfoSet {
-  integer num,
-  charstring str,
-  octetstring octets optional
-}
-with {
-  variant " JSON : metainfo for unbound ";
-  variant (num) " JSON : name as int ";
-}
-
-type record MetainfoInnerRecord {
-  integer num,
-  charstring str
-}
-with {
-  variant "JSON: metainfo for unbound";
-}
-
-type record MetainfoOuterRecord {
-  integer mynum,
-  charstring mystr,
-  MetainfoInnerRecord myRec
-}
-
-type record BinaryStrings {
-  bitstring bit,
-  hexstring hex,
-  octetstring oct
-}
-
-type record of integer MetainfoRecOf
-with { variant "JSON: metainfo for unbound"; }
-
-type set of MetainfoRecord MetainfoSetOf
-with { variant "JSON: metainfo for unbound"; }
-
-type float MetainfoArray[3]
-with { variant "metainfo for unbound"; }
-
-type record RecAsValue {
-  integer field
-}
-with {
-  variant "JSON: as value";
-}
-
-type record RecNotAsValue {
-  RoF field
-}
-
-type union UniNotAsValue {
-  integer i,
-  octetstring o
-}
-
-type set SetWithAsValueFields {
-  UniNotAsValue uni,
-  RecNotAsValue rec,
-  record of anytype list
-}
-with {
-  variant (uni) "JSON: as value";
-  variant (rec) "JSON: as value";
-  variant (list[-]) "asValue";
-}
-
-type record RecWithAsNumber {
-  record of enumerated { Short(0), Medium(50), Long(100) } lengths,
-  record of Days days
-}
-with {
-  variant (lengths[-]) "JSON: as number";
-  variant (days[-]) "as number";
-}
-
-type union Uni522660 {
-  integer f12,
-  integer f1
-}
-
-type record DefaultEmptyStructs {
-  record { } r,
-  set { } s,
-  record of integer ro,
-  set of charstring so
-}
-with {
-  variant (r) "JSON: default({})";
-  variant (s) "default({})";
-  variant (ro) "default({})";
-  variant (so) "JSON: default({})";
-}
-
-type record PduWithId {
-  integer protocolId,
-  Choices field1 optional,
-  Choices field2 optional
-}
-with {
-  variant (field1) "chosen (type1, { protocolId = 1, protocolId = 11 }; type2, protocolId = 2; omit, protocolId = 3; type3, otherwise)";
-  variant (field2) "chosen (type1, protocolId = 2; type2, { protocolId = 10, protocolId = 11 }; type3, protocolId = 3)"; // no otherwise
-}
-
-type union Choices {
-  StructType1 type1,
-  StructType2 type2,
-  StructType3 type3
-}
-
-type record StructType1 {
-  integer num,
-  charstring str
-}
-
-type record StructType2 {
-  integer num,
-  universal charstring str
-}
-
-type record StructType3 {
-  float num,
-  charstring str
-}
-
-type record of PduWithId PduWithIdList;
-
-type record PduWithId2 {
-  integer protocolId1,
-  integer protocolId2,
-  Choices field optional
-}
-with {
-  variant (field) "chosen (type1, { protocolId1 = 1, protocolId2 = 1 }; type2, protocolId1 = 0; type3, protocolId2 = 0; omit, otherwise)";
-  variant (protocolId1) "default (1)";
-  variant (protocolId2) "default (0)";
-}
-
-type record MapItem {
-  universal charstring key,
-  integer value_ optional
-}
-
-type set of MapItem Map
-with { variant "as map" }
-
-type union JsonValue {
-  integer JsonInteger,
-  float JsonNumber,
-  boolean JsonBool,
-  universal charstring JsonString,
-  record of JsonValue JsonArray,
-  set of record {
-    universal charstring   key,
-    JsonValue               val
-  } JsonObject
-}
-with {
-  variant "JSON: as value"
-  variant (JsonObject) "as map";
-}
-
-type enumerated EnumNumber { One, Two, Three }
-with {
-  variant "text 'One' as '1'";
-  variant "text 'Two' as '2'";
-  variant "text 'Three' as '3'";
-}
-
-type record of EnumNumber EnumNumberList;
 
 } with {
   encode "JSON";
-  extension "anytype integer, charstring, R, RoI, Thing";
 }

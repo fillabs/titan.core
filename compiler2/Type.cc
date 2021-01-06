@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -1817,7 +1817,7 @@ namespace Common {
               }
               ap_list->set_fullname(parsed_pars->get_fullname());
               ap_list->set_my_scope(parsed_pars->get_my_scope());
-              ref->set_actual_par_list(ap_list);
+              ref->set_parameter_list(ap_list, NULL);
             }
             t = get_pooltype(T_USTR);
             // todo: set *last_method
@@ -1876,7 +1876,7 @@ namespace Common {
               }
               ap_list->set_fullname(parsed_pars->get_fullname());
               ap_list->set_my_scope(parsed_pars->get_my_scope());
-              ref->set_actual_par_list(ap_list);
+              ref->set_parameter_list(ap_list, fp_list);
             }
             if (last_method != NULL) {
               *last_method = ass;

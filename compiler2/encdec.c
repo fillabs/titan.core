@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -96,7 +96,7 @@ void def_encdec(const char *p_classname,
      " TTCN_Buffer& p_buf, TTCN_EncDec::coding_t p_coding, ...) const\n"
      "{\n"
      "  va_list pvar;\n"
-     "  va_start(pvar, p_coding);\n"
+     "  va_start(pvar, (int)p_coding);\n"
      "  switch(p_coding) {\n"
      "  case TTCN_EncDec::CT_BER: {\n"
      "    TTCN_EncDec_ErrorContext ec(\"While BER-encoding type"
@@ -176,7 +176,7 @@ void def_encdec(const char *p_classname,
      " TTCN_Buffer& p_buf, TTCN_EncDec::coding_t p_coding, ...)\n"
      "{\n"
      "  va_list pvar;\n"
-     "  va_start(pvar, p_coding);\n"
+     "  va_start(pvar, (int)p_coding);\n"
      "  switch(p_coding) {\n"
      "  case TTCN_EncDec::CT_BER: {\n"
      "    TTCN_EncDec_ErrorContext ec(\"While BER-decoding type"

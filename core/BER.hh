@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -140,8 +140,8 @@ template<typename T>
 size_t min_needed_bits(T p)
 {
   if(p==0) return 1;
-  register size_t n=0;
-  register T tmp=p;
+  size_t n=0;
+  T tmp=p;
   while(tmp!=0) n++, tmp/=2;
   return n;
 }

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -42,12 +42,17 @@ static debug_new_counter_t debug_new_counter;
 void* operator new(size_t size, const char* file, int line);
 void* operator new[](size_t size, const char* file, int line);
 
-// TODO: these might be GCC version dependant
+// TODO: these might be GCC version dependent
 void* operator new(size_t size, const std::nothrow_t&, const char* file, int line);
 void* operator new[](size_t size, const std::nothrow_t&, const char* file, int line);
 
 inline void* operator new(size_t, void* __p, const char*, int) { return __p; }
 inline void* operator new[](size_t, void* __p, const char*, int) { return __p; }
+
+#if __cplusplus >= 201703L
+void* operator new(size_t size, std::align_val_t, const char* file, int line);
+void* operator new[](size_t size, std::align_val_t, const char* file, int line);
+#endif // C++11
 
 // Redirect "normal" new to memory-tracking placement new.
 #define new(...) new(__VA_ARGS__, __FILE__, __LINE__)

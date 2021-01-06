@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -236,14 +236,23 @@ namespace Ttcn {
     return u.ff.ap_list;
   }
   
-  void FieldOrArrayRef::set_actual_par_list(ActualParList* p_ap_list)
+  FormalParList* FieldOrArrayRef::get_formal_par_list() const
+  {
+    if (ref_type != FUNCTION_REF || !u.ff.checked) {
+      FATAL_ERROR("FieldOrArrayRef::get_formal_par_list()");
+    }
+    return u.ff.fp_list;
+  }
+  
+  void FieldOrArrayRef::set_parameter_list(ActualParList* p_ap_list, FormalParList* p_fp_list)
   {
     if (ref_type != FUNCTION_REF || u.ff.checked) {
-      FATAL_ERROR("FieldOrArrayRef::set_actual_par_list()");
+      FATAL_ERROR("FieldOrArrayRef::set_parameter_list()");
     }
     u.ff.checked = true;
     delete u.ff.parsed_pars;
     u.ff.ap_list = p_ap_list;
+    u.ff.fp_list = p_fp_list;
   }
 
   void FieldOrArrayRef::append_stringRepr(string& str) const
@@ -555,6 +564,16 @@ namespace Ttcn {
     for (size_t i = 0; i < refs.size(); i++) refs[i]->append_stringRepr(str);
   }
   
+  bool FieldOrArrayRefs::has_function_ref() const
+  {
+    for (size_t i = 0; i < refs.size(); ++i) {
+      if (refs[i]->get_type() == FieldOrArrayRef::FUNCTION_REF) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
   void FieldOrArrayRefs::use_default_alternative(size_t p_idx, const Identifier& p_alt_name)
   {
     FieldOrArrayRef* alt_ref = new FieldOrArrayRef(new Identifier(p_alt_name));
@@ -864,6 +883,9 @@ namespace Ttcn {
             // if the referred assignment is a class type, then the reference and
             // its parameters are meant for the constructor instead
             ass = type->get_class_type_body()->get_constructor();
+            if (ass == NULL) {
+              return NULL;
+            }
           }
         }
         FormalParList* fplist = ass->get_FormalParList();
@@ -1042,8 +1064,17 @@ namespace Ttcn {
     if (reftype == REF_THIS && id == NULL) {
       return false;
     }
+    Common::Assignment* ass = get_refd_assignment();
+    if (subrefs.has_function_ref()) {
+      Common::Assignment* last_method = NULL;
+      Type* field_type = ass->get_Type()->get_field_type(&subrefs,
+        Common::Type::EXPECTED_DYNAMIC_VALUE, NULL, false, &last_method);
+      if (field_type != NULL &&
+          field_type->get_type_refd_last()->get_typetype() == Common::Type::T_CLASS) {
+        return false;
+      }
+    }
     if (parlist != NULL) {
-      Common::Assignment* ass = get_refd_assignment();
       const FormalParList* fplist = (ass != NULL) ? ass->get_FormalParList() : NULL;
       for (size_t i = 0; i < parlist->get_nof_pars(); i++) {
         if (!parlist->get_par(i)->has_single_expr(
@@ -1056,6 +1087,19 @@ namespace Ttcn {
         for (size_t i = 0; i < num_formal; ++i) {
           const FormalPar *fp = fplist->get_fp_byIndex(i);
           if (fp->get_eval_type() != NORMAL_EVAL) {
+            return false;
+          }
+        }
+      }
+    }
+    for (size_t i = 0; i < subrefs.get_nof_refs(); ++i) {
+      FieldOrArrayRef* subref = subrefs.get_ref(i);
+      if (subref->get_type() == FieldOrArrayRef::FUNCTION_REF) {
+        ActualParList* ap_list = subref->get_actual_par_list();
+        FormalParList* fp_list = subref->get_formal_par_list();
+        for (size_t j = 0; j < ap_list->get_nof_pars(); ++j) {
+          if (!ap_list->get_par(j)->has_single_expr(
+              fp_list != NULL ? fp_list->get_fp_byIndex(i) : NULL)) {
             return false;
           }
         }
@@ -1246,12 +1290,34 @@ namespace Ttcn {
 
     t_subrefs->generate_code(&this_expr, ass, my_scope, true);
     
-    expr->expr = mputstr(expr->expr, this_expr.expr);
     if (this_expr.preamble != NULL) {
       expr->preamble = mputstr(expr->preamble, this_expr.preamble);
     }
-    if (this_expr.postamble != NULL) {
-      expr->postamble = mputstr(expr->postamble, this_expr.postamble);
+    
+    Common::Assignment* last_method = NULL;
+    Type* field_type = refd_gov->get_field_type(t_subrefs,
+      Common::Type::EXPECTED_DYNAMIC_VALUE, NULL, false, &last_method);
+    if (field_type != NULL && t_subrefs->has_function_ref() &&
+        field_type->get_type_refd_last()->get_typetype() == Common::Type::T_CLASS) {
+      // If the reference contains a class method call, then the end result is a temporary
+      // object in C++. If it's of a class type, then the C++ compiler can't automatically
+      // convert the temporary object to a constant reference of a base class (in case the
+      // reference is used as an 'in' actual parameter).
+      // For safety, the end result is copied in these cases.
+      string tmp_str = my_scope->get_scope_mod_gen()->get_temporary_id();
+      expr->preamble = mputprintf(expr->preamble,
+        "%s %s(%s);\n",
+        field_type->get_genname_value(my_scope).c_str(), tmp_str.c_str(), this_expr.expr);
+      if (this_expr.postamble != NULL) {
+        expr->preamble = mputstr(expr->preamble, this_expr.postamble);
+      }
+      expr->expr = mputstr(expr->expr, tmp_str.c_str());
+    }
+    else {
+      expr->expr = mputstr(expr->expr, this_expr.expr);
+      if (this_expr.postamble != NULL) {
+        expr->postamble = mputstr(expr->postamble, this_expr.postamble);
+      }
     }
     Code::free_expr(&this_expr);
   }
@@ -2306,7 +2372,7 @@ namespace Ttcn {
       if (in_class && ass_v[i]->get_asstype() != Common::Assignment::A_CONSTRUCTOR) {
         visibility_t vis = ass_v[i]->get_visibility();
         target->header.class_defs = mputprintf(target->header.class_defs,
-          "%s:\n", vis == PUBLIC ? "public" : (vis == PRIVATE ? "private" :
+          "\n%s:\n", vis == PUBLIC ? "public" : (vis == PRIVATE ? "private" :
           "protected"));
       }
       ass_v[i]->generate_code(target);
@@ -2910,7 +2976,8 @@ namespace Ttcn {
             char* act_product_number;
             unsigned int act_suffix, act_rel, act_patch, act_build;
             char* extra_junk;
-            (void)ex.get_id(act_product_number, act_suffix, act_rel, act_patch, act_build, extra_junk);
+            tribool legacy;
+            (void)ex.get_id(act_product_number, act_suffix, act_rel, act_patch, act_build, extra_junk, legacy);
 
             if (release != UINT_MAX) {
               ex.error("Duplicate 'version' attribute");
@@ -2922,6 +2989,7 @@ namespace Ttcn {
               patch   = act_patch;
               build   = act_build;
               extra = mcopystr(extra_junk);
+              legacy_version = legacy;
             }
             // Avoid propagating the attribute needlessly
             multi->delete_element(i--);
@@ -2933,8 +3001,9 @@ namespace Ttcn {
             char* exp_product_number;
             unsigned int exp_suffix, exp_rel, exp_patch, exp_build;
             char* exp_extra;
+            tribool legacy;
             Common::Identifier *req_id = ex.get_id(exp_product_number,
-                exp_suffix, exp_rel, exp_patch, exp_build, exp_extra);
+                exp_suffix, exp_rel, exp_patch, exp_build, exp_extra, legacy);
             // We own req_id
             if (imp->has_impmod_withId(*req_id)) {
               Common::Module* m = modules->get_mod_byId(*req_id);
@@ -2952,33 +3021,46 @@ namespace Ttcn {
                   ", while it specifies '%s'",
                     this->modid->get_dispname().c_str(),
                     req_id->get_dispname().c_str(), m->product_number);
-              } else if (m->product_number != NULL && exp_product_number != NULL
-                  &&  0 != strcmp(m->product_number, exp_product_number)) {
-                char *req_product_identifier =
-                    get_product_identifier(exp_product_number,
-                    exp_suffix, exp_rel, exp_patch, exp_build);
-                char *mod_product_identifier =
-                    get_product_identifier(m->product_number,
-                    m->suffix, m->release, m->patch, m->build);
+              } else if (m->product_number != NULL && exp_product_number != NULL) {
+                bool prod_match = false;
+                if (legacy == m->legacy_version || (legacy != TFALSE && m->legacy_version != TFALSE)) {
+                  prod_match = (0 == strcmp(m->product_number, exp_product_number));
+                }
+                else if (legacy == TTRUE && m->legacy_version == TFALSE) {
+                  prod_match = (0 == strcmp(exp_product_number, LEGACY_PRODNR_EXECUTOR) &&
+                      0 == strcmp(m->product_number, PRODNR_EXECUTOR));
+                }
+                else if (legacy == TFALSE && m->legacy_version == TTRUE) {
+                  prod_match = (0 == strcmp(exp_product_number, PRODNR_EXECUTOR) &&
+                      0 == strcmp(m->product_number, LEGACY_PRODNR_EXECUTOR));
+                }
+                if (!prod_match) {
+                  char *req_product_identifier =
+                      get_product_identifier(exp_product_number,
+                      exp_suffix, exp_rel, exp_patch, exp_build, NULL, legacy);
+                  char *mod_product_identifier =
+                      get_product_identifier(m->product_number,
+                      m->suffix, m->release, m->patch, m->build, NULL, m->legacy_version);
 
-                ex.error("Module '%s' requires version %s of module"
-                  " '%s', but only %s is available",
-                    this->modid->get_dispname().c_str(), req_product_identifier,
-                    req_id->get_dispname().c_str(), mod_product_identifier);
-                Free(req_product_identifier);
-                Free(mod_product_identifier);
-                multi->delete_element(i--);
-                single = 0;
-                break;
+                  ex.error("Module '%s' requires version %s of module"
+                    " '%s', but only %s is available",
+                      this->modid->get_dispname().c_str(), req_product_identifier,
+                      req_id->get_dispname().c_str(), mod_product_identifier);
+                  Free(req_product_identifier);
+                  Free(mod_product_identifier);
+                  multi->delete_element(i--);
+                  single = 0;
+                  break;
+                }
               }
               // different suffixes are always incompatible
               // unless the special version number is used
               if (m->suffix != exp_suffix && (m->suffix != UINT_MAX)) {
                 char *req_product_identifier =
-                    get_product_identifier(exp_product_number,exp_suffix, exp_rel, exp_patch, exp_build);
+                    get_product_identifier(exp_product_number,exp_suffix, exp_rel, exp_patch, exp_build, NULL, legacy);
                 char *mod_product_identifier =
                     get_product_identifier(m->product_number,
-                    m->suffix, m->release, m->patch, m->build);
+                    m->suffix, m->release, m->patch, m->build, NULL, m->legacy_version);
 
                 ex.error("Module '%s' requires version %s of module"
                   " '%s', but only %s is available",
@@ -3018,8 +3100,10 @@ namespace Ttcn {
             char* exp_product_number;
             unsigned int exp_suffix, exp_minor, exp_patch, exp_build;
             char* exp_extra;
-            (void)ex.get_id(exp_product_number, exp_suffix, exp_minor, exp_patch, exp_build, exp_extra);
-            if (exp_product_number != NULL && strcmp(exp_product_number,"CRL 113 200") != 0) {
+            tribool legacy;
+            (void)ex.get_id(exp_product_number, exp_suffix, exp_minor, exp_patch, exp_build, exp_extra, legacy);
+            if (exp_product_number != NULL && ((legacy != TTRUE && strcmp(exp_product_number, PRODNR_EXECUTOR) != 0) ||
+                (legacy == TTRUE && strcmp(exp_product_number, LEGACY_PRODNR_EXECUTOR) != 0))) {
               ex.error("This module needs to be compiled with TITAN, but "
                 " product number %s is not TITAN"
                 , exp_product_number);
@@ -3032,10 +3116,10 @@ namespace Ttcn {
               + exp_minor * 10000 + exp_patch * 100 + exp_build;
             if (expected_version > TTCN3_VERSION_MONOTONE) {
               char *exp_product_identifier =
-                    get_product_identifier(exp_product_number, exp_suffix, exp_minor, exp_patch, exp_build);
+                    get_product_identifier(exp_product_number, exp_suffix, exp_minor, exp_patch, exp_build, NULL, legacy);
               ex.error("This module needs to be compiled with TITAN version"
                 " %s or higher; version %s detected"
-                , exp_product_identifier, PRODUCT_NUMBER);
+                , exp_product_identifier, legacy == TTRUE ? LEGACY_PRODUCT_NUMBER : PRODUCT_NUMBER);
               Free(exp_product_identifier);
             }
             multi->delete_element(i--);
@@ -7951,6 +8035,18 @@ namespace Ttcn {
         body);
       Free(body);
     }
+    else if (in_class && my_scope->get_scope_class()->is_external()) {
+      char* out_par_str = enable_set_bound_out_param ? memptystr() :
+        fp_list->generate_code_set_unbound(memptystr());
+      target->source.methods = mputprintf(target->source.methods,
+        "%s %s::%s(%s)\n"
+        "{\n"
+        "%s\n"
+        "}\n\n", return_type_str,
+        my_scope->get_scope_class()->get_id()->get_name().c_str(),
+        genname_str, formal_par_list, out_par_str);
+      Free(out_par_str);
+    }
 
     Free(formal_par_list);
 
@@ -8803,11 +8899,13 @@ namespace Ttcn {
     Common::Identifier::ID_TTCN, string("create"), true)),
     fp_list(p_fp_list), base_call(p_base_call), block(p_block)
   {
-    if (p_fp_list == NULL || block == NULL) {
+    if (p_fp_list == NULL) {
       FATAL_ERROR("Def_Constructor::Def_Constructor");
     }
     fp_list->set_my_def(this);
-    block->set_my_def(this);
+    if (block != NULL) {
+      block->set_my_def(this);
+    }
   }
   
   Def_Constructor::~Def_Constructor()
@@ -8829,7 +8927,9 @@ namespace Ttcn {
     if (base_call != NULL) {
       base_call->set_fullname(p_fullname + ".<base_call>");
     }
-    block->set_fullname(p_fullname + ".<statement_block>");
+    if (block != NULL) {
+      block->set_fullname(p_fullname + ".<statement_block>");
+    }
   }
 
   void Def_Constructor::set_my_scope(Scope* p_scope)
@@ -8843,7 +8943,9 @@ namespace Ttcn {
     if (base_call != NULL) {
       base_call->set_my_scope(fp_list);
     }
-    block->set_my_scope(fp_list);
+    if (block != NULL) {
+      block->set_my_scope(fp_list);
+    }
   }
 
   FormalParList* Def_Constructor::get_FormalParList()
@@ -8890,7 +8992,7 @@ namespace Ttcn {
         }
       }
     }
-    else if (base_class != NULL) {
+    else if (base_class != NULL && !my_class->is_external()) {
       Def_Constructor* base_constructor = base_class->get_constructor();
       if (base_constructor != NULL &&
           !base_constructor->get_FormalParList()->has_only_default_values()) {
@@ -8898,14 +9000,24 @@ namespace Ttcn {
       }
     }
     
-    block->chk();
+    if (block != NULL) {
+      if (my_class->is_external()) {
+        error("The constructor of an external class cannot have a body");
+      }
+      block->chk();
+    }
+    else if (!my_class->is_external()) {
+      error("Missing constructor body");
+    }
     
     if (!semantic_check_only) {
       // prefix 'create' with the class name when forming parameter names
       // to avoid collisions in the generated code
       fp_list->set_genname(my_scope->get_scope_class()->get_id()->get_name() +
         string("_") + get_genname());
-      block->set_code_section(GovernedSimple::CS_INLINE);
+      if (block != NULL) {
+        block->set_code_section(GovernedSimple::CS_INLINE);
+      }
     }
   }
   
@@ -8916,19 +9028,23 @@ namespace Ttcn {
         target->temp.constructor_block);
     }
     
-    char* block_gen_str = block->generate_code(memptystr(),
-      target->header.global_vars, target->source.global_vars);
+    char* block_gen_str = block != NULL ? block->generate_code(memptystr(),
+      target->header.global_vars, target->source.global_vars) : NULL;
     fp_list->generate_code_defval(target);
-    target->temp.constructor_block = fp_list->generate_shadow_objects(
-      target->temp.constructor_block);
-    target->temp.constructor_block = mputstr(target->temp.constructor_block, block_gen_str);
+    if (block != NULL) {
+      target->temp.constructor_block = fp_list->generate_shadow_objects(
+        target->temp.constructor_block);
+      target->temp.constructor_block = mputstr(target->temp.constructor_block, block_gen_str);
+    }
     Free(block_gen_str);
   }
   
   void Def_Constructor::set_parent_path(WithAttribPath* p_path)
   {
     Definition::set_parent_path(p_path);
-    block->set_parent_path(w_attrib_path);
+    if (block != NULL) {
+      block->set_parent_path(w_attrib_path);
+    }
   }
 
   // =================================
@@ -9464,7 +9580,7 @@ namespace Ttcn {
     Template *ap_template = actual_par->get_Template();
     if (ap_template->is_Ref()) {
       Reference *ref = ap_template->get_Ref();
-      Common::Assignment *ass = ref->get_refd_assignment();
+      Common::Assignment *ass = ref->get_refd_assignment_last();
       if (!ass) {
         delete ref;
         return new ActualPar();
@@ -10164,15 +10280,18 @@ namespace Ttcn {
         pars_m[name]->note("Previous definition of `%s' is here", dispname);
       } else {
         pars_m.add(name, par);
-        if (parent_scope && parent_scope->get_scope_class() == NULL &&
-            parent_scope->has_ass_withId(id)) {
-          par->error("Parameter name `%s' is not unique in the scope "
-            "hierarchy", dispname);
+        if (parent_scope && parent_scope->has_ass_withId(id)) {
           Reference ref(0, id.clone());
+          ref.set_my_scope(this);
           Common::Assignment *ass = parent_scope->get_ass_bySRef(&ref);
           if (!ass) FATAL_ERROR("FormalParList::chk()");
-          ass->note("Symbol `%s' is already defined here in a higher scope "
-            "unit", dispname);
+          if (parent_scope->get_scope_class() == NULL ||
+              !ass->get_my_scope()->is_class_scope()) {
+            par->error("Parameter name `%s' is not unique in the scope "
+              "hierarchy", dispname);
+            ass->note("Symbol `%s' is already defined here in a higher scope "
+              "unit", dispname);
+          }
         }
       }
       Error_Context cntxt2(par, "In parameter `%s'", dispname);

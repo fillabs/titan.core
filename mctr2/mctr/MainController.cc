@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -27,7 +27,7 @@
 // Author:                Janos Zoltan Szabo
 // mail:                  tmpjsz@eth.ericsson.se
 //
-// Copyright (c) 2000-2020 Ericsson Telecom AB
+// Copyright (c) 2000-2021 Ericsson Telecom AB
 //
 //----------------------------------------------------------------------------
 
@@ -840,7 +840,7 @@ boolean MainController::check_version(unknown_connection *conn)
       } else module_checksum = NULL;
       if (checksum_length != modules[found_index].checksum_length) {
         send_error(conn->fd, "The checksum of module %s in this ETS "
-          "hass different length (%d) than that of the firstly connected ETS (%d).",
+          "has different length (%d) than that of the firstly connected ETS (%d).",
           module_name, checksum_length, modules[found_index].checksum_length);
         delete [] module_checksum;
         delete [] module_name;
@@ -3267,7 +3267,10 @@ void MainController::send_create_ptc(host_struct *hc,
   text_buf.push_string(component_name);
   text_buf.push_int(is_alive ? 1 : 0);
   text_buf.push_qualified_name(current_testcase);
-  text_buf.push_int(testcase_start_time.tv_sec);
+  int upper_int = testcase_start_time.tv_sec / 0xffffffff;
+  int lower_int = testcase_start_time.tv_sec % 0xffffffff;
+  text_buf.push_int(upper_int);
+  text_buf.push_int(lower_int);
   text_buf.push_int(testcase_start_time.tv_usec);
   send_message(hc->hc_fd, text_buf);
 }
@@ -4171,7 +4174,9 @@ void MainController::process_create_req(component_struct *tc)
     component_location = NULL;
   }
   boolean is_alive = text_buf.pull_int().get_val();
-  testcase_start_time.tv_sec = text_buf.pull_int().get_val();
+  int upper_int = text_buf.pull_int().get_val();
+  int lower_int = text_buf.pull_int().get_val();
+  testcase_start_time.tv_sec = upper_int * 0xffffffff + lower_int;
   testcase_start_time.tv_usec = text_buf.pull_int().get_val();
 
   host_struct *host = choose_ptc_location(component_type.definition_name,

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -2163,13 +2163,13 @@ TTCN3Module: // 1
 ;
 
 TTCN3ModuleId: // 3
-  optError TTCN3ModuleKeyword IDentifier optDefinitiveIdentifier
+  optError TTCN3ModuleKeyword IDentifier optOopString optDefinitiveIdentifier
   optLanguageSpec optError
   {
     act_ttcn3_module = new Ttcn::Module($3);
     act_ttcn3_module->set_scope_name($3->get_dispname());
-    act_ttcn3_module->set_language_spec($5);
-    Free($5);
+    act_ttcn3_module->set_language_spec($6);
+    Free($6);
   }
 ;
 
@@ -2201,6 +2201,17 @@ optPackageNameList:
 PackageNameList:
   ',' FreeText { Free($2); }
 |  PackageNameList ',' FreeText { Free($3); }
+;
+
+optOopString:
+  /* empty */
+| Cstring
+{
+  if(strcmp($1, "TTCN-3:2018 Object-Oriented") != 0) {
+	ttcn3_error("unexpected string literal in module declaration");
+  }
+  Free($1);
+}
 ;
 
 ModuleBody:
@@ -3696,6 +3707,11 @@ ConstructorDef:
   StatementBlock
   {
     $$ = new Def_Constructor($3, $5, $6);
+    $$->set_location(infile, @$);
+  }
+| CreateKeyword '(' optFunctionFormalParList ')'
+  {
+	$$ = new Def_Constructor($3, NULL, NULL);
     $$->set_location(infile, @$);
   }
 ;

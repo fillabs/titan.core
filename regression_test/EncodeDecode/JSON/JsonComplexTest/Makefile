@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2000-2020 Ericsson Telecom AB
+# Copyright (c) 2000-2021 Ericsson Telecom AB
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v2.0
 # which accompanies this distribution, and is available at
@@ -19,7 +19,7 @@ include $(TOPDIR)/Makefile.regression
 
 TTCN3_LIB = ttcn3$(RT2_SUFFIX)$(DYNAMIC_SUFFIX)
 
-TTCN3_MODULES = JsonTypes.ttcn JsonFunctions.ttcn AttributeTestcases.ttcn JsonTestcases.ttcn OtherTypes.ttcn SemanticCheck.ttcn Cbor.ttcn Bson.ttcn
+TTCN3_MODULES = JsonTypes0.ttcn JsonTypes1.ttcn JsonFunctions.ttcn AttributeTestcases.ttcn JsonTestcases.ttcn OtherTypes.ttcn SemanticCheck.ttcn Cbor.ttcn Bson.ttcn
 
 ifdef LEGACY_CODEC_HANDLING
 TTCN3_MODULES += SemanticCheck2.ttcn

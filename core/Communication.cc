@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -860,7 +860,10 @@ void TTCN_Communication::send_create_req(const char *component_type_module,
   text_buf.push_string(component_name);
   text_buf.push_string(component_location);
   text_buf.push_int(is_alive ? 1 : 0);
-  text_buf.push_int(testcase_start_time.tv_sec);
+  int upper_int = testcase_start_time.tv_sec / 0xffffffff;
+  int lower_int = testcase_start_time.tv_sec % 0xffffffff;
+  text_buf.push_int(upper_int);
+  text_buf.push_int(lower_int);
   text_buf.push_int(testcase_start_time.tv_usec);
   send_message(text_buf);
 }
@@ -1405,7 +1408,9 @@ void TTCN_Communication::process_create_ptc()
   qualified_name current_testcase;
   incoming_buf.pull_qualified_name(current_testcase);
   timeval testcase_start_time;
-  testcase_start_time.tv_sec = incoming_buf.pull_int().get_val();
+  int upper_int = incoming_buf.pull_int().get_val();
+  int lower_int = incoming_buf.pull_int().get_val();
+  testcase_start_time.tv_sec = upper_int * 0xffffffff + lower_int;
   testcase_start_time.tv_usec = incoming_buf.pull_int().get_val();
   incoming_buf.cut_message();
 

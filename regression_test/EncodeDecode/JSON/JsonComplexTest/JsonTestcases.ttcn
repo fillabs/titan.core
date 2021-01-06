@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -13,9 +13,12 @@
 module JsonTestcases {
 
 import from JsonFunctions all;
-import from JsonTypes all;
+import from JsonTypes0 all;
+import from JsonTypes1 all;
 import from JsonData language "ASN.1" all;
 import from OtherTypes all;
+
+type component MTC {}
 
 modulepar R tsp_r := {
   i:= 1,
@@ -25,9 +28,6 @@ modulepar R tsp_r := {
 };
 
 modulepar charstring tsp_cs_long := "123456789123456789123456789 abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz ;""'\\/\n\r\t\f\b.,<>?|:][{}=-+!@#$%^&*()";
-
-
-
 
 const octetstring c_BOM_UTF8 :='EFBBBF'O; 
 
@@ -168,6 +168,7 @@ testcase tc_charstring_ascii_basic_escapes() runs on MTC{
 testcase tc_charstring_ascii_extended1() runs on MTC{
   var charstring cs := "Vire au Vert l"&char(0,0,0,224)&"!";
   var octetstring os:= f_enc_cs( cs )
+  log(os);
   f_check_encoding(encoded:= os, expected := char2oct(qm & cs & qm));
   @try{
     f_bool2verdict(cs==f_dec_cs(os));
@@ -176,7 +177,6 @@ testcase tc_charstring_ascii_extended1() runs on MTC{
   @catch(err_msg) {
     setverdict(pass,"expected error, ok")
   }
-
 }
 
 testcase tc_ucharstring_ascii_extended1_xer() runs on MTC{
@@ -356,7 +356,6 @@ testcase tc_float() runs on MTC{
   }
   
 }
-
 
 //============ enum ======================
 
@@ -844,6 +843,34 @@ testcase tc_bug_522660() runs on MTC {
   }
 }
 
+testcase tc_bug_568645() runs on MTC {
+  var universal charstring stream := "{ \"i1\":123}";
+  var Uni568645 pdu_decoded;
+  var Uni568645 pdu_expected := { field1 := { i1 := 123 } };
+  var integer result := decvalue_unichar(stream, pdu_decoded);
+  if (result != 0 or pdu_decoded != pdu_expected) {
+    setverdict(fail, "Test #1 failed. Result: ", result, ". Decoded value: ",
+      pdu_decoded, ", expected: ", pdu_expected);
+  }
+  
+  stream := "{ \"i1\":123, \"i2\":456}";
+  pdu_expected := { field2 := { i1 := 123, i2 := 456 } };
+  result := decvalue_unichar(stream, pdu_decoded);
+  if (result != 0 or pdu_decoded != pdu_expected) {
+    setverdict(fail, "Test #2 failed. Result: ", result, ". Decoded value: ",
+      pdu_decoded, ", expected: ", pdu_expected);
+  }
+  
+  stream := "{ \"i1\":123, \"i2\":[1,2,3]}";
+  pdu_expected := { field3 := { i1 := 123, i2 := { 1, 2, 3 } } };
+  result := decvalue_unichar(stream, pdu_decoded);
+  if (result != 0 or pdu_decoded != pdu_expected) {
+    setverdict(fail, "Test #3 failed. Result: ", result, ". Decoded value: ",
+      pdu_decoded, ", expected: ", pdu_expected);
+  }
+  setverdict(pass);
+}
+
 //=========================================================================
 // Control
 //=========================================================================
@@ -903,7 +930,6 @@ control {
   execute(tc_asn_choice());
   execute(tc_asn_strings());
   execute(tc_asn_complex());
-
   execute(tc_asn_open_type_and_null());
   execute(tc_asn_objid_and_any());
   execute(tc_asn_optional_null());
@@ -935,6 +961,7 @@ control {
   execute(tc_multi_level_recordof());
   
   execute(tc_bug_522660());
+  execute(tc_bug_568645());
 }
 
 

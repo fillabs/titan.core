@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 ###############################################################################
-# Copyright (c) 2000-2020 Ericsson Telecom AB
+# Copyright (c) 2000-2021 Ericsson Telecom AB
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v2.0
 # which accompanies this distribution, and is available at
@@ -65,7 +65,7 @@ my @sa_tcList2Execute;
 # Store test case data
 my @sa_TCInfo;
 # Timeout for system calls in seconds
-my $sa_timeout = 40;
+my $sa_timeout = 60;
 # Max time to wait for a license, in multiple of 10 minutes
 my $max_cycles = 6;
 # Execution statistics

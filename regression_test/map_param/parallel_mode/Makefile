@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2000-2020 Ericsson Telecom AB
+# Copyright (c) 2000-2021 Ericsson Telecom AB
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v2.0
 # which accompanies this distribution, and is available at
@@ -16,8 +16,8 @@ include $(TOPDIR)/Makefile.regression
 
 TTCN3_LIB = ttcn3$(RT2_SUFFIX)-parallel$(DYNAMIC_SUFFIX)
 
-COMMON_TTCN3_MODULES = common.ttcn
-TTCN3_MODULES = $(COMMON_TTCN3_MODULES) parallel_test.ttcn
+COMMON_TTCN3_MODULES = map_param_common.ttcn
+TTCN3_MODULES = $(COMMON_TTCN3_MODULES) map_param_parallel_test.ttcn
 
 GENERATED_SOURCES = $(TTCN3_MODULES:.ttcn=.cc)
 GENERATED_HEADERS = $(GENERATED_SOURCES:.cc=.hh)
@@ -54,7 +54,7 @@ $(GENERATED_SOURCES) $(GENERATED_HEADERS): $(TTCN3_MODULES) $(PORT_HEADERS)
 
 clean distclean:
 	-rm -f $(TARGET) $(OBJECTS) $(GENERATED_HEADERS) \
-	$(GENERATED_SOURCES) *.log Makefile.bak
+	$(GENERATED_SOURCES) *.log Makefile.bak $(COMMON_TTCN3_MODULES) $(PORT_SOURCES) $(PORT_HEADERS)
 
 dep: $(GENERATED_SOURCES)
 	makedepend $(CPPFLAGS) $(GENERATED_SOURCES)

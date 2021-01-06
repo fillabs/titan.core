@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2000-2020 Ericsson Telecom AB
+# Copyright (c) 2000-2021 Ericsson Telecom AB
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v2.0
 # which accompanies this distribution, and is available at
@@ -19,7 +19,7 @@ TOPDIR := ../../
 include $(TOPDIR)/Makefile.regression
 
 RDIRS = Examples HN25015 HQ26535 HQ49956 HS16977 ustr Annex_E_variants Bug521125 \
-        Lengthto_Offset Bug522656 RAW_integer RAW_bitstring RAW_EncDec ForceOmit Bug546231 \
+        Lengthto_Offset Bug522656  RAW_bitstring RAW_EncDec RAW_integer RAW_repeat  ForceOmit Bug546231 \
         Bug547385 IntX CSN1_LH
 
 all dep clean run distclean:

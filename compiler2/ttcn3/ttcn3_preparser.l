@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -89,7 +89,7 @@ LINECOMMENT "//"[^\r\n]*{NEWLINE}
   BEGIN(SC_ttcn3modulebody);
 }
 
-<SC_ttcn3modulebody>"{"|"."|"language" return 1;
+<SC_ttcn3modulebody>"{"|"."|"language"|"\"TTCN-3:2018 Object-Oriented\"" return 1;
 
 .          |
 <*><<EOF>> return 0;

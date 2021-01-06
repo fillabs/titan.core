@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -821,8 +821,7 @@ void defRecordOfClass1(const struct_of_def *sdef, output_struct *output)
       "        return decoded_length;\n"
       "      }\n"
       "    } else if(limit.has_token(ml)){\n"
-      "      int tl;\n"
-      "      if((tl=limit.match(p_buf,ml))==0){\n"
+      "      if(limit.match(p_buf,ml)==0){\n"
       "        sep_found=FALSE;\n"
       "        break;\n"
       "      }\n"
@@ -835,7 +834,7 @@ void defRecordOfClass1(const struct_of_def *sdef, output_struct *output)
       "  if(p_td.text->end_decode){\n"
       "    int tl;\n"
       "    if((tl=p_td.text->end_decode->match_begin(p_buf))<0){\n"
-      "          if(no_err){"
+      "          if(no_err){\n"
       "            if(!first_call){\n"
       "              for(int a=more; a<val_ptr->n_elements; a++) "
       "delete val_ptr->value_elements[a];\n"
@@ -1504,10 +1503,10 @@ void defRecordOfClass1(const struct_of_def *sdef, output_struct *output)
       "          }\n"
       "        }\n"
       "        else if (XML_READER_TYPE_END_ELEMENT == type) {\n"
-      "          for (; p_reader.Depth() > xml_depth; rd_ok = p_reader.Read()) ;\n"
+      "          for (; p_reader.Depth() > xml_depth; p_reader.Read()) ;\n"
       "          if (own_tag) {\n"
       "            verify_end(p_reader, p_td, xml_depth, e_xer);\n"
-      "            rd_ok = p_reader.Read();\n" /* move forward one last time */
+      "            p_reader.Read();\n" /* move forward one last time */
       "          }\n"
       "          break;\n"
       "        }\n"
@@ -2378,8 +2377,7 @@ void defRecordOfClassMemAllocOptimized(const struct_of_def *sdef, output_struct 
       "        return decoded_length;\n"
       "      }\n"
       "    } else if(limit.has_token(ml)){\n"
-      "      int tl;\n"
-      "      if((tl=limit.match(p_buf,ml))==0){\n"
+      "      if(limit.match(p_buf,ml)==0){\n"
       "        sep_found=FALSE;\n"
       "        break;\n"
       "      }\n"
@@ -2392,7 +2390,7 @@ void defRecordOfClassMemAllocOptimized(const struct_of_def *sdef, output_struct 
       "  if(p_td.text->end_decode){\n"
       "    int tl;\n"
       "    if((tl=p_td.text->end_decode->match_begin(p_buf))<0){\n"
-      "          if(no_err){"
+      "          if(no_err){\n"
       "            if(!first_call){\n"
       "              set_size(more);\n"
       "            }\n"
@@ -3028,10 +3026,10 @@ void defRecordOfClassMemAllocOptimized(const struct_of_def *sdef, output_struct 
       "          }\n"
       "        }\n"
       "        else if (XML_READER_TYPE_END_ELEMENT == type) {\n"
-      "          for (; p_reader.Depth() > xml_depth; rd_ok = p_reader.Read()) ;\n"
+      "          for (; p_reader.Depth() > xml_depth; p_reader.Read()) ;\n"
       "          if (own_tag) {\n"
       "            verify_end(p_reader, p_td, xml_depth, e_xer);\n"
-      "            rd_ok = p_reader.Read();\n" /* move forward one last time */
+      "            p_reader.Read();\n" /* move forward one last time */
       "          }\n"
       "          break;\n"
       "        }\n"

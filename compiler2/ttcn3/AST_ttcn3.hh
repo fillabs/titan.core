@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -205,7 +205,10 @@ namespace Ttcn {
         bool checked;
         union {
           ParsedActualParameters* parsed_pars; ///< parsed function parameters, used by FUNCTION_REF
-          ActualParList* ap_list; ///< actual parameter list (after semantic analysis), used by FUNCTION_REF
+          struct {
+            ActualParList* ap_list; ///< actual parameter list (after semantic analysis), used by FUNCTION_REF
+            FormalParList* fp_list; ///< formal parameter list (after semantic analysis, not owned), used by FUNCTION_REF
+          };
         };
       } ff; ///< field or function
       Value *arp; ///< value of the index, used by ARRAY_REF
@@ -230,8 +233,9 @@ namespace Ttcn {
     Value* get_val() const;
     ParsedActualParameters* get_parsed_pars() const;
     ActualParList* get_actual_par_list() const;
+    FormalParList* get_formal_par_list() const;
     bool parameters_checked() const;
-    void set_actual_par_list(ActualParList* p_ap_list);
+    void set_parameter_list(ActualParList* p_ap_list, FormalParList* p_fp_list);
     /** Appends the string representation of the sub-reference to \a str. */
     void append_stringRepr(string& str) const;
     /** Sets the first letter in the name of the field to lowercase if it's an
@@ -286,6 +290,7 @@ namespace Ttcn {
     /** Appends the string representation of sub-references to \a str. */
     void append_stringRepr(string &str) const;
     bool refers_to_string_element() const { return refs_str_element; }
+    bool has_function_ref() const;
     void set_string_element_ref() { refs_str_element = true; }
     void clear_string_element_ref() { refs_str_element = false; }
     /** Adds a new field ref for the union type's @default alternative at the specified index.

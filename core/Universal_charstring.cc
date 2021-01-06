@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -1168,7 +1168,7 @@ void UNIVERSAL_CHARSTRING::decode(const TTCN_Typedescriptor_t& p_td,
   TTCN_Buffer& p_buf, TTCN_EncDec::coding_t p_coding, ...)
 {
   va_list pvar;
-  va_start(pvar, p_coding);
+  va_start(pvar, (int)p_coding);
   switch(p_coding) {
   case TTCN_EncDec::CT_BER: {
     TTCN_EncDec_ErrorContext ec("While BER-decoding type '%s': ", p_td.name);
@@ -2016,7 +2016,7 @@ int UNIVERSAL_CHARSTRING::XER_encode(const XERdescriptor_t& p_td,
  */
 inline
 static unsigned int
-hash (register const char *str, register unsigned int len)
+hash (const char *str, unsigned int len)
 {
   static unsigned char asso_values[] =
     {
@@ -2122,11 +2122,11 @@ in_word_set (const char *str, unsigned int len)
 
   if (len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH)
     {
-      register int key = hash (str, len);
+      int key = hash (str, len);
 
       if (key <= MAX_HASH_VALUE && key >= 0)
         {
-          register const char s = wordlist[key];
+          const char s = wordlist[key];
           return s;
         }
     }

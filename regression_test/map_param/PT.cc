@@ -2,14 +2,14 @@
 // TTCN-3 Compiler of the TTCN-3 Test Executor version CRL 113 200/6 R5B
 // for ebotbar (ebotbar@ebotbarVB) on Mon Apr 29 13:25:58 2019
 
-// Copyright (c) 2000-2020 Ericsson Telecom AB
+// Copyright (c) 2000-2021 Ericsson Telecom AB
 
 // You may modify this file. Complete the body of empty functions and
 // add your member functions here.
 
 #include "PT.hh"
 
-namespace common {
+namespace map__param__common {
 
 PT::PT(const char *par_port_name)
 	: PT_BASE(par_port_name)

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -817,7 +817,7 @@ void INTEGER::decode(const TTCN_Typedescriptor_t& p_td, TTCN_Buffer& p_buf,
                      TTCN_EncDec::coding_t p_coding, ...)
 {
   va_list pvar;
-  va_start(pvar, p_coding);
+  va_start(pvar, (int)p_coding);
   switch(p_coding) {
   case TTCN_EncDec::CT_BER: {
     TTCN_EncDec_ErrorContext ec("While BER-decoding type '%s': ", p_td.name);

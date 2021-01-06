@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -1098,8 +1098,7 @@ int Record_Of_Type::TEXT_decode(const TTCN_Typedescriptor_t& p_td,
         return decoded_length;
       }
     } else if(limit.has_token(ml)){
-      int tl;
-      if((tl=limit.match(buff,ml))==0){
+      if(limit.match(buff,ml)==0){
         //sep_found=FALSE;
         break;
       }
@@ -4004,14 +4003,12 @@ int Record_Type::TEXT_decode(const TTCN_Typedescriptor_t& p_td, TTCN_Buffer& buf
         int tl;
         if ((tl=p_td.text->separator_decode->match_begin(buff))<0) {
           if (p_td.text->end_decode) {
-            int tl2;
-            if ((tl2=p_td.text->end_decode->match_begin(buff))!=-1) {
+            if (p_td.text->end_decode->match_begin(buff)!=-1) {
               sep_found=FALSE;
               break;
             }
           } else if (limit.has_token(ml)) {
-            int tl2;
-            if ((tl2=limit.match(buff,ml))==0) {
+            if (limit.match(buff,ml)==0) {
               sep_found=FALSE;
               break;
             }
@@ -4060,8 +4057,7 @@ int Record_Type::TEXT_decode(const TTCN_Typedescriptor_t& p_td, TTCN_Buffer& buf
           goto bail;
         }
       } else if(limit.has_token(ml)){
-        int tl;
-        if ((tl=limit.match(buff,ml))==0) {
+        if (limit.match(buff,ml)==0) {
           sep_found=FALSE;
           break;
         }
@@ -6301,6 +6297,9 @@ int Record_Type::JSON_decode(const TTCN_Typedescriptor_t& p_td, JSON_Tokenizer& 
       }
       if (field_count == field_idx) {
         // invalid field name
+        if (p_silent) {
+          return JSON_ERROR_INVALID_TOKEN;
+        }
         JSON_ERROR(TTCN_EncDec::ET_INVAL_MSG, is_metainfo ?
           JSON_DEC_METAINFO_NAME_ERROR : JSON_DEC_INVALID_NAME_ERROR, (int)name_len, name);
         // if this is set to a warning, skip the value of the field

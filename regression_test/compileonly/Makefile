@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2000-2020 Ericsson Telecom AB
+# Copyright (c) 2000-2021 Ericsson Telecom AB
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v2.0
 # which accompanies this distribution, and is available at
@@ -31,7 +31,7 @@ CODIRS := dynamicTemplate styleGuide topLevelPdu \
 	asn1_hyphen nameClash portTranslation UntaggedOnTopLevelUnionSwitch \
 	typeDescrGenWIthNoXER languageSpec asn1_opentype openTypeXER \
 	asnStringSubtypes componentParameter realtimeKeywords Bug550526 \
-	Bug550623 Bug552232
+	Bug550623 Bug552232 Bug568340 Bug568592
 
 ifdef DYN
 CODIRS +=  mfgen-xsd

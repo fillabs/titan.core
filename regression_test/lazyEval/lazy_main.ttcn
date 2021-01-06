@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -15,7 +15,7 @@ module lazy_main {
 // The goal of this project is to test the feature "Lazy Parameter Evaluation" 
 // described in chapter 4.29 of referenceguide.doc 
 // Reference: Programmers's Technical Reference Guide for TITAN TTCN-3 Test Executor 
-//            2/19817-CRL 113 200/3 Uen Rev C
+//            CAX 105 7730 rev 7.2.0
 //
 // Import chain: lazy_main<-lazy_A<-lazy_B<-lazy_C
 //

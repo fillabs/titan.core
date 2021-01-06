@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -61,8 +61,13 @@ namespace Common {
   extern Real int2float(const int_val_t& value);
   extern int_val_t* float2int(const Real& value, const Location& loc);
   extern string* float2str(const Real& value);
+  // returns a pointer to an empty string if the input doesn't match the expression (as in TTCN-3)
   extern string* regexp(const string& instr, const string& expression,
                         const Int& groupno, bool nocase);
+  // returns a null pointer if the input doesn't match the expression
+  // (to distinguish between a matching empty string and non-matching)
+  extern string* regexp_internal(const string& instr, const string& expression,
+                                 const Int& groupno, bool nocase);
   extern ustring* regexp(const ustring& instr, const ustring& expression,
                         const Int& groupno, bool nocase);
   extern string* remove_bom(const string& encoded_value);

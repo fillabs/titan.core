@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2000-2020 Ericsson Telecom AB
+ * Copyright (c) 2000-2021 Ericsson Telecom AB
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
  * which accompanies this distribution, and is available at
@@ -253,6 +253,7 @@ namespace Common {
     unsigned int patch;
     unsigned int build;
     char* extra;
+    tribool legacy_version;
     /** @} */
 
     friend class Ttcn::Module;
@@ -368,7 +369,7 @@ namespace Common {
     void write_checksum();
     static char* get_product_identifier(const char* product_number,
         const unsigned int suffix, unsigned int release, unsigned int patch,
-        unsigned int build, const char* extra=NULL);
+        unsigned int build, const char* extra=NULL, tribool legacy = TUNKNOWN);
     ModuleVersion getVersion() const;
   protected: // *::Module need access
     /** Collects the set of visible modules into \a visible_mods. */

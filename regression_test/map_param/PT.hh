@@ -2,7 +2,7 @@
 // TTCN-3 Compiler of the TTCN-3 Test Executor version CRL 113 200/6 R5B
 // for ebotbar (ebotbar@ebotbarVB) on Mon Apr 29 13:25:58 2019
 
-// Copyright (c) 2000-2020 Ericsson Telecom AB
+// Copyright (c) 2000-2021 Ericsson Telecom AB
 
 // You may modify this file. Add your attributes and prototypes of your
 // member functions here.
@@ -10,9 +10,9 @@
 #ifndef PT_HH
 #define PT_HH
 
-#include "common.hh"
+#include "map_param_common.hh"
 
-namespace common {
+namespace map__param__common {
 
 class PT : public PT_BASE {
 public:
