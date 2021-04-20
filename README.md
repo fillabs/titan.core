@@ -1,6 +1,7 @@
 # !!!NOTE TO ALL USERS!!!
 
-This repository will migrate to the Eclipse Foundation GitLab (https://gitlab.eclipse.org, the exact repository access will be communicated later) on the 20th April 2021.
+This repository is migrated to the Eclipse Foundation GitLab. From now on (2021.04.20) please use this link to access the repository:
+https://gitlab.eclipse.org/eclipse/titan/titan.core
 
 # titan.core
 
