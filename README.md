@@ -1,3 +1,8 @@
+# !!!NOTE TO ALL USERS!!!
+
+This repository is migrated to the Eclipse Foundation GitLab. From now on (2021.04.20) please use this link to access the repository:
+https://gitlab.eclipse.org/eclipse/titan/titan.core
+
 # titan.core
 
 TTCN-3 is a standardized, modular language specifically designed for testing.

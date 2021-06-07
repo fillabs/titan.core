@@ -11,6 +11,7 @@
  *   Baranyi, Botond
  *   Beres, Szabolcs
  *   Delic, Adam
+ *   Knapp, Adam
  *   Kovacs, Ferenc
  *   Raduly, Csaba
  *   Szabados, Kristof
@@ -21,6 +22,7 @@
  *
  ******************************************************************************/
 #include "../../common/dbgnew.hh"
+#include "../../common/version.h"
 #include "AST_ttcn3.hh"
 #include "../Identifier.hh"
 #include "../CompilerError.hh"
@@ -45,6 +47,7 @@
 #include "../CodeGenHelper.hh"
 #include "../../common/JSON_Tokenizer.hh"
 #include "../DebuggerStuff.hh"
+#include "../SigParam.hh"
 #include <limits.h>
 
 // implemented in coding_attrib_p.y
@@ -398,6 +401,7 @@ namespace Ttcn {
     case Common::Assignment::A_EXT_CONST:         // a Def_ExtConst
     case Common::Assignment::A_MODULEPAR:         // a Def_Modulepar
     case Common::Assignment::A_VAR:               // a Def_Var
+    case Common::Assignment::A_EXCEPTION:         // a Def_Exception
     case Common::Assignment::A_FUNCTION_RVAL:     // a Def_Function
     case Common::Assignment::A_EXT_FUNCTION_RVAL: // a Def_ExtFunction
     case Common::Assignment::A_PAR_VAL_IN:        // a FormalPar
@@ -673,6 +677,7 @@ namespace Ttcn {
     case Common::Assignment::A_MODULEPAR:      /**< module parameter (TTCN-3) */
     case Common::Assignment::A_MODULEPAR_TEMP: /**< template module parameter */
     case Common::Assignment::A_VAR:            /**< variable (TTCN-3) */
+    case Common::Assignment::A_EXCEPTION:      /**< exception (TTCN-3) */
     case Common::Assignment::A_VAR_TEMPLATE:   /**< template variable: dynamic template (TTCN-3) */
     case Common::Assignment::A_TIMER:          /**< timer (TTCN-3) */
     case Common::Assignment::A_PORT:           /**< port (TTCN-3) */
@@ -905,6 +910,27 @@ namespace Ttcn {
         }
       }
     }
+    if (ass != NULL) {
+      ref_usage_found(ass);
+      StatementBlock* sb = my_scope->get_statementblock_scope();
+      if (sb != NULL && sb->is_in_finally_block()) {
+        switch (ass->get_asstype()) {
+        default:
+          if (!ass->is_local()) {
+            break;
+          }
+          // else fall through
+        case Common::Assignment::A_PAR_VAL:
+        case Common::Assignment::A_PAR_VAL_IN:
+        case Common::Assignment::A_PAR_VAL_OUT:
+        case Common::Assignment::A_PAR_VAL_INOUT:
+        case Common::Assignment::A_PAR_TEMPL_IN:
+        case Common::Assignment::A_PAR_TEMPL_OUT:
+        case Common::Assignment::A_PAR_TEMPL_INOUT:
+          sb->get_finally_block()->add_refd_local_def(ass);
+        }
+      }
+    }
     return ass;
   }
   
@@ -914,6 +940,7 @@ namespace Ttcn {
     if (ass != NULL && subrefs.get_nof_refs() != 0) {
       switch (ass->get_asstype()) {
       case Common::Assignment::A_VAR:
+      case Common::Assignment::A_EXCEPTION:
       case Common::Assignment::A_PAR_VAL:
       case Common::Assignment::A_PAR_VAL_IN:
       case Common::Assignment::A_PAR_VAL_INOUT:
@@ -981,6 +1008,7 @@ namespace Ttcn {
       t_ass->use_as_lvalue(*this);
       // no break
     case Common::Assignment::A_VAR:
+    case Common::Assignment::A_EXCEPTION:
     case Common::Assignment::A_PAR_VAL_OUT:
     case Common::Assignment::A_PAR_VAL_INOUT:
       if (has_parameters()) {
@@ -1108,9 +1136,8 @@ namespace Ttcn {
     return true;
   }
   
-  void Reference::ref_usage_found()
+  void Reference::ref_usage_found(Common::Assignment *ass)
   {
-    Common::Assignment *ass = get_refd_assignment();
     if (!ass) FATAL_ERROR("Reference::ref_usage_found()");
     switch (ass->get_asstype()) {
     case Common::Assignment::A_PAR_VAL_OUT:
@@ -1130,6 +1157,13 @@ namespace Ttcn {
       break; }
     case Common::Assignment::A_EXT_CONST: {
       Def_ExtConst* def = dynamic_cast<Def_ExtConst*>(ass);
+      if (def == NULL) {
+        FATAL_ERROR("Reference::ref_usage_found()");
+      }
+      def->set_usage_found();
+      break; }
+    case Common::Assignment::A_EXCEPTION: {
+      Def_Exception* def = dynamic_cast<Def_Exception*>(ass);
       if (def == NULL) {
         FATAL_ERROR("Reference::ref_usage_found()");
       }
@@ -1163,7 +1197,6 @@ namespace Ttcn {
 
   void Reference::generate_code(expression_struct_t *expr)
   {
-    ref_usage_found();
     Common::Assignment *ass = get_refd_assignment();
     if (!ass) FATAL_ERROR("Reference::generate_code()");
     if (reftype == REF_THIS) {
@@ -1186,6 +1219,7 @@ namespace Ttcn {
         base_type->get_genname_own(my_scope).c_str());
     }
     string const_prefix; // empty by default
+    string exception_postfix; // also empty by default
     if (gen_const_prefix) {
       if (ass->get_asstype() == Common::Assignment::A_CONST) {
         const_prefix = "const_";
@@ -1193,6 +1227,9 @@ namespace Ttcn {
       else if (ass->get_asstype() == Common::Assignment::A_TEMPLATE) {
         const_prefix = "template_";
       }
+    }
+    if (ass->get_asstype() == Common::Assignment::A_EXCEPTION) {
+      exception_postfix = "()";
     }
     if (parlist != NULL) {
       expr->expr = mputprintf(expr->expr, "%s(",
@@ -1204,7 +1241,7 @@ namespace Ttcn {
       expr->expr = mputstr(expr->expr,
         LazyFuzzyParamData::in_lazy_or_fuzzy() ?
         LazyFuzzyParamData::add_ref_genname(ass, my_scope).c_str() :
-        (const_prefix + ass->get_genname_from_scope(my_scope)).c_str());
+        (const_prefix + ass->get_genname_from_scope(my_scope) + exception_postfix).c_str());
     }
     if (subrefs.get_nof_refs() > 0) subrefs.generate_code(expr, ass, my_scope);
   }
@@ -1217,7 +1254,6 @@ namespace Ttcn {
       return;
     }
     
-    ref_usage_found();
     Common::Assignment *ass = get_refd_assignment();
     if (!ass) FATAL_ERROR("Reference::generate_code_const_ref()");
 
@@ -1225,6 +1261,7 @@ namespace Ttcn {
     switch (ass->get_asstype()) {
     case Common::Assignment::A_MODULEPAR:
     case Common::Assignment::A_VAR:
+    case Common::Assignment::A_EXCEPTION:
     case Common::Assignment::A_PAR_VAL:
     case Common::Assignment::A_PAR_VAL_IN:
     case Common::Assignment::A_PAR_VAL_OUT:
@@ -1270,6 +1307,10 @@ namespace Ttcn {
           refd_gov->get_genname_value(get_my_scope()).c_str());
       }
     }
+    string exception_postfix;
+    if (ass->get_asstype() == Common::Assignment::A_EXCEPTION) {
+      exception_postfix = "()";
+    }
     if (parlist != NULL) {
       // reference without parameters to a template that has only default formal parameters.
       // if @lazy: nothing to do, it's a C++ function call just like in case of Ref_pard::generate_code()
@@ -1282,7 +1323,7 @@ namespace Ttcn {
       this_expr.expr = mputstr(this_expr.expr,
         LazyFuzzyParamData::in_lazy_or_fuzzy() ?
         LazyFuzzyParamData::add_ref_genname(ass, my_scope).c_str() :
-        ass->get_genname_from_scope(my_scope).c_str());
+        (ass->get_genname_from_scope(my_scope) + exception_postfix).c_str());
     }
     if (refd_gov->get_type_refd_last()->get_typetype() != Common::Type::T_CLASS) {
       this_expr.expr = mputstr(this_expr.expr, ")");
@@ -1325,7 +1366,6 @@ namespace Ttcn {
   void Reference::generate_code_portref(expression_struct_t *expr,
     Scope *p_scope)
   {
-    ref_usage_found();
     Common::Assignment *ass = get_refd_assignment();
     if (!ass) FATAL_ERROR("Reference::generate_code_portref()");
     expr->expr = mputstr(expr->expr,
@@ -1337,7 +1377,6 @@ namespace Ttcn {
   void Reference::generate_code_ispresentboundchosen(expression_struct_t *expr,
     bool is_template, const Value::operationtype_t optype, const char* field)
   {
-    ref_usage_found();
     Common::Assignment *ass = get_refd_assignment();
     const string& ass_id = ass->get_genname_from_scope(my_scope);
     const char *ass_id_str = ass_id.c_str();
@@ -2976,8 +3015,8 @@ namespace Ttcn {
             char* act_product_number;
             unsigned int act_suffix, act_rel, act_patch, act_build;
             char* extra_junk;
-            tribool legacy;
-            (void)ex.get_id(act_product_number, act_suffix, act_rel, act_patch, act_build, extra_junk, legacy);
+            enum version_t version_type;
+            (void)ex.get_id(act_product_number, act_suffix, act_rel, act_patch, act_build, extra_junk, version_type);
 
             if (release != UINT_MAX) {
               ex.error("Duplicate 'version' attribute");
@@ -2989,7 +3028,7 @@ namespace Ttcn {
               patch   = act_patch;
               build   = act_build;
               extra = mcopystr(extra_junk);
-              legacy_version = legacy;
+              this->version_type = version_type;
             }
             // Avoid propagating the attribute needlessly
             multi->delete_element(i--);
@@ -3001,9 +3040,9 @@ namespace Ttcn {
             char* exp_product_number;
             unsigned int exp_suffix, exp_rel, exp_patch, exp_build;
             char* exp_extra;
-            tribool legacy;
+            enum version_t version_type;
             Common::Identifier *req_id = ex.get_id(exp_product_number,
-                exp_suffix, exp_rel, exp_patch, exp_build, exp_extra, legacy);
+                exp_suffix, exp_rel, exp_patch, exp_build, exp_extra, version_type);
             // We own req_id
             if (imp->has_impmod_withId(*req_id)) {
               Common::Module* m = modules->get_mod_byId(*req_id);
@@ -3016,31 +3055,47 @@ namespace Ttcn {
                 single = 0;
                 break;
               } else if (exp_product_number == NULL &&
-                m->product_number != NULL && strcmp(m->product_number, "") > 0){
+                m->product_number != NULL && strlen(m->product_number) > 0){
                 ex.warning("Module '%s' requires module '%s' of any product"
                   ", while it specifies '%s'",
                     this->modid->get_dispname().c_str(),
                     req_id->get_dispname().c_str(), m->product_number);
               } else if (m->product_number != NULL && exp_product_number != NULL) {
                 bool prod_match = false;
-                if (legacy == m->legacy_version || (legacy != TFALSE && m->legacy_version != TFALSE)) {
+                if (version_type == m->version_type) {
                   prod_match = (0 == strcmp(m->product_number, exp_product_number));
                 }
-                else if (legacy == TTRUE && m->legacy_version == TFALSE) {
-                  prod_match = (0 == strcmp(exp_product_number, LEGACY_PRODNR_EXECUTOR) &&
-                      0 == strcmp(m->product_number, PRODNR_EXECUTOR));
+                else if (version_type == LEGACY_CRL && m->version_type == LEGACY_CAX) {
+                  prod_match = (0 == strcmp(exp_product_number, LEGACY_CRL_PRODNR_EXECUTOR) &&
+                      0 == strcmp(m->product_number, LEGACY_CAX_PRODNR_EXECUTOR));
                 }
-                else if (legacy == TFALSE && m->legacy_version == TTRUE) {
-                  prod_match = (0 == strcmp(exp_product_number, PRODNR_EXECUTOR) &&
-                      0 == strcmp(m->product_number, LEGACY_PRODNR_EXECUTOR));
+                else if (version_type == LEGACY_CAX && m->version_type == LEGACY_CRL) {
+                  prod_match = (0 == strcmp(exp_product_number, LEGACY_CAX_PRODNR_EXECUTOR) &&
+                      0 == strcmp(m->product_number, LEGACY_CRL_PRODNR_EXECUTOR));
+                }
+                else if (version_type == LEGACY_CRL && m->version_type == DOT_SEPARATED) {
+                	prod_match = (0 == strcmp(exp_product_number, LEGACY_CRL_PRODNR_EXECUTOR) &&
+					  0 == strlen(m->product_number));
+                }
+                else if (version_type == DOT_SEPARATED && m->version_type == LEGACY_CRL) {
+                	prod_match = (0 == strlen(exp_product_number) &&
+					  0 == strcmp(m->product_number, LEGACY_CRL_PRODNR_EXECUTOR));
+				}
+                else if (version_type == LEGACY_CAX && m->version_type == DOT_SEPARATED) {
+                	prod_match = (0 == strcmp(exp_product_number, LEGACY_CAX_PRODNR_EXECUTOR) &&
+					  0 == strlen(m->product_number));
+                }
+                else if (version_type == DOT_SEPARATED && m->version_type == LEGACY_CAX) {
+                	prod_match = (0 == strlen(exp_product_number) &&
+					  0 == strcmp(m->product_number, LEGACY_CAX_PRODNR_EXECUTOR));
                 }
                 if (!prod_match) {
                   char *req_product_identifier =
                       get_product_identifier(exp_product_number,
-                      exp_suffix, exp_rel, exp_patch, exp_build, NULL, legacy);
+                      exp_suffix, exp_rel, exp_patch, exp_build, NULL, version_type);
                   char *mod_product_identifier =
                       get_product_identifier(m->product_number,
-                      m->suffix, m->release, m->patch, m->build, NULL, m->legacy_version);
+                      m->suffix, m->release, m->patch, m->build, NULL, m->version_type);
 
                   ex.error("Module '%s' requires version %s of module"
                     " '%s', but only %s is available",
@@ -3057,10 +3112,10 @@ namespace Ttcn {
               // unless the special version number is used
               if (m->suffix != exp_suffix && (m->suffix != UINT_MAX)) {
                 char *req_product_identifier =
-                    get_product_identifier(exp_product_number,exp_suffix, exp_rel, exp_patch, exp_build, NULL, legacy);
+                    get_product_identifier(exp_product_number,exp_suffix, exp_rel, exp_patch, exp_build, NULL, version_type);
                 char *mod_product_identifier =
                     get_product_identifier(m->product_number,
-                    m->suffix, m->release, m->patch, m->build, NULL, m->legacy_version);
+                    m->suffix, m->release, m->patch, m->build, NULL, m->version_type);
 
                 ex.error("Module '%s' requires version %s of module"
                   " '%s', but only %s is available",
@@ -3100,10 +3155,11 @@ namespace Ttcn {
             char* exp_product_number;
             unsigned int exp_suffix, exp_minor, exp_patch, exp_build;
             char* exp_extra;
-            tribool legacy;
-            (void)ex.get_id(exp_product_number, exp_suffix, exp_minor, exp_patch, exp_build, exp_extra, legacy);
-            if (exp_product_number != NULL && ((legacy != TTRUE && strcmp(exp_product_number, PRODNR_EXECUTOR) != 0) ||
-                (legacy == TTRUE && strcmp(exp_product_number, LEGACY_PRODNR_EXECUTOR) != 0))) {
+            enum version_t version_type;
+            (void)ex.get_id(exp_product_number, exp_suffix, exp_minor, exp_patch, exp_build, exp_extra, version_type);
+            if (exp_product_number != NULL && ((version_type == LEGACY_CAX && strcmp(exp_product_number, LEGACY_CAX_PRODNR_EXECUTOR) != 0) ||
+                (version_type == LEGACY_CRL && strcmp(exp_product_number, LEGACY_CRL_PRODNR_EXECUTOR) != 0) ||
+				(version_type == DOT_SEPARATED && strlen(exp_product_number) != 0))) {
               ex.error("This module needs to be compiled with TITAN, but "
                 " product number %s is not TITAN"
                 , exp_product_number);
@@ -3116,10 +3172,25 @@ namespace Ttcn {
               + exp_minor * 10000 + exp_patch * 100 + exp_build;
             if (expected_version > TTCN3_VERSION_MONOTONE) {
               char *exp_product_identifier =
-                    get_product_identifier(exp_product_number, exp_suffix, exp_minor, exp_patch, exp_build, NULL, legacy);
+                    get_product_identifier(exp_product_number, exp_suffix, exp_minor, exp_patch, exp_build, NULL, version_type);
+              char *tmp = "UNKNOWN";
+              switch(version_type) {
+              case LEGACY_CRL:
+            	  tmp = LEGACY_CRL_PRODUCT_NUMBER;
+            	  break;
+              case LEGACY_CAX:
+            	  tmp = LEGACY_CAX_PRODUCT_NUMBER;
+            	  break;
+              case DOT_SEPARATED:
+            	  tmp = PRODUCT_NUMBER;
+            	  break;
+              default:
+            	  // Do nothing
+            	  break;
+              }
               ex.error("This module needs to be compiled with TITAN version"
                 " %s or higher; version %s detected"
-                , exp_product_identifier, legacy == TTRUE ? LEGACY_PRODUCT_NUMBER : PRODUCT_NUMBER);
+                , exp_product_identifier, tmp);
               Free(exp_product_identifier);
             }
             multi->delete_element(i--);
@@ -5320,21 +5391,27 @@ namespace Ttcn {
   void Def_Var::chk()
   {
     if(checked) return;
-    Error_Context cntxt(this, "In variable definition `%s'",
-      id->get_dispname().c_str());
+    Error_Context cntxt(this, "In %s definition `%s'",
+      asstype == A_EXCEPTION ? "exception" : "variable", id->get_dispname().c_str());
     type->set_genname(_T_, get_genname());
     type->chk();
     checked = true;
     Type *t = type->get_type_refd_last();
     switch (t->get_typetype()) {
     case Type::T_PORT:
-      error("Variable cannot be defined for port type `%s'",
-        t->get_fullname().c_str());
+      error("%s cannot be defined for port type `%s'",
+        asstype == A_EXCEPTION ? "Exception" : "Variable", t->get_fullname().c_str());
       break;
     case Type::T_SIGNATURE:
-      error("Variable cannot be defined for signature `%s'",
-        t->get_fullname().c_str());
+      error("%s cannot be defined for signature `%s'",
+        asstype == A_EXCEPTION ? "Exception" : "Variable", t->get_fullname().c_str());
       break;
+    case Type::T_DEFAULT:
+      if (asstype == A_EXCEPTION) {
+        error("Exception cannot be defined for the default type");
+        break;
+      }
+      // else fall through
     default:
     if (initial_value) {
       initial_value->set_my_governor(type);
@@ -5488,6 +5565,22 @@ namespace Ttcn {
     DEBUG(level, "Variable %s", id->get_dispname().c_str());
     type->dump(level + 1);
     if (initial_value) initial_value->dump(level + 1);
+  }
+
+  // =================================
+  // ===== Def_Exception
+  // =================================
+  
+  Def_Exception::Def_Exception(Identifier* p_id, Type* p_type): Def_Var(p_id, p_type, NULL), usage_found(false)
+  {
+    asstype = Common::Assignment::A_EXCEPTION;
+  }
+  
+  char* Def_Exception::generate_code_str(char *str)
+  {
+    return usage_found ? mputprintf(str, "EXCEPTION< %s >& %s = static_cast<EXCEPTION< %s >&>(exc_base);\n",
+      type->get_genname_value(my_scope).c_str(), id->get_name().c_str(), type->get_genname_value(my_scope).c_str()) :
+      str;
   }
 
   // =================================
@@ -6547,7 +6640,7 @@ namespace Ttcn {
 
   Def_Function_Base::Def_Function_Base(const Def_Function_Base& p)
     : Definition(p), prototype(PROTOTYPE_NONE), input_type(0), output_type(0),
-    final(p.final)
+    final(p.final), exceptions(p.exceptions)
   {
     fp_list = p.fp_list->clone();
     fp_list->set_my_def(this);
@@ -6557,11 +6650,13 @@ namespace Ttcn {
 
   Def_Function_Base::Def_Function_Base(bool is_external, Identifier *p_id,
     FormalParList *p_fpl, Type *p_return_type, bool returns_template,
-    template_restriction_t p_template_restriction, bool p_final)
+    template_restriction_t p_template_restriction, bool p_final,
+    Common::SignatureExceptions* p_exceptions)
     : Definition(determine_asstype(is_external, p_return_type != 0,
         returns_template), p_id), fp_list(p_fpl), return_type(p_return_type),
         prototype(PROTOTYPE_NONE), input_type(0), output_type(0),
-        template_restriction(p_template_restriction), final(p_final)
+        template_restriction(p_template_restriction), final(p_final),
+        exceptions(p_exceptions)
   {
     if (!p_fpl) FATAL_ERROR("Def_Function_Base::Def_Function_Base()");
     fp_list->set_my_def(this);
@@ -6572,6 +6667,7 @@ namespace Ttcn {
   {
     delete fp_list;
     delete return_type;
+    delete exceptions;
   }
 
   void Def_Function_Base::set_fullname(const string& p_fullname)
@@ -6579,6 +6675,9 @@ namespace Ttcn {
     Definition::set_fullname(p_fullname);
     fp_list->set_fullname(p_fullname + ".<formal_par_list>");
     if (return_type) return_type->set_fullname(p_fullname + ".<return_type>");
+    if (exceptions != NULL) {
+      exceptions->set_fullname(p_fullname + ".<exceptions>");
+    }
   }
 
   void Def_Function_Base::set_my_scope(Scope *p_scope)
@@ -6586,6 +6685,9 @@ namespace Ttcn {
     Definition::set_my_scope(p_scope);
     fp_list->set_my_scope(p_scope);
     if (return_type) return_type->set_my_scope(p_scope);
+    if (exceptions != NULL) {
+      exceptions->set_my_scope(p_scope);
+    }
   }
 
   Type *Def_Function_Base::get_Type()
@@ -6747,11 +6849,19 @@ namespace Ttcn {
   
   bool Def_Function_Base::is_identical(Def_Function_Base* p_other)
   {
-    if (asstype != p_other->get_asstype()) {
-      return false;
+    Common::Assignment::asstype_t asstype2 = p_other->get_asstype();
+    if (asstype != asstype2) {
+      if ((asstype == Common::Assignment::A_FUNCTION && asstype2 != Common::Assignment::A_EXT_FUNCTION) ||
+          (asstype == Common::Assignment::A_EXT_FUNCTION && asstype2 != Common::Assignment::A_FUNCTION) ||
+          (asstype == Common::Assignment::A_FUNCTION_RVAL && asstype2 != Common::Assignment::A_EXT_FUNCTION_RVAL) ||
+          (asstype == Common::Assignment::A_EXT_FUNCTION_RVAL && asstype2 != Common::Assignment::A_FUNCTION_RVAL) ||
+          (asstype == Common::Assignment::A_FUNCTION_RTEMP && asstype2 != Common::Assignment::A_EXT_FUNCTION_RTEMP) ||
+          (asstype == Common::Assignment::A_EXT_FUNCTION_RTEMP && asstype2 != Common::Assignment::A_FUNCTION_RTEMP)) {
+        return false;
+      }
     }
-    else if (return_type != NULL &&
-             !p_other->return_type->is_identical(return_type)) {
+    if (return_type != NULL &&
+        !p_other->return_type->is_identical(return_type)) {
       return false;
     }
     FormalParList* other_fp_list = p_other->get_FormalParList();
@@ -6765,6 +6875,20 @@ namespace Ttcn {
           !fp1->get_Type()->is_identical(fp2->get_Type()) ||
           fp1->get_id().get_name() != fp2->get_id().get_name()) {
         return false;
+      }
+    }
+    if (exceptions != NULL || p_other->exceptions != NULL) {
+      if (exceptions == NULL || p_other->exceptions == NULL) {
+        // one of them has exceptions, the other doesn't
+        return false;
+      }
+      if (exceptions->get_nof_types() != p_other->exceptions->get_nof_types()) {
+        return false;
+      }
+      for (size_t i = 0; i < exceptions->get_nof_types(); ++i) {
+        if (!p_other->exceptions->has_type(exceptions->get_type_byIndex(i))) {
+          return false;
+        }
       }
     }
     return true;
@@ -6781,9 +6905,9 @@ namespace Ttcn {
                              Type *p_return_type,
                              bool returns_template,
                              template_restriction_t p_template_restriction,
-                             bool p_final, StatementBlock *p_block)
+                             bool p_final, Common::SignatureExceptions* p_exceptions, StatementBlock *p_block)
     : Def_Function_Base(false, p_id, p_fpl, p_return_type, returns_template,
-        p_template_restriction, p_final),
+        p_template_restriction, p_final, p_exceptions),
         runs_on_ref(p_runs_on_ref), runs_on_type(0),
         mtc_ref(p_mtc_ref), mtc_type(0),
         system_ref(p_system_ref), system_type(0),
@@ -7031,6 +7155,9 @@ namespace Ttcn {
         break;
       }
     }
+    if (exceptions != NULL) {
+      exceptions->chk(this);
+    }
     if (!semantic_check_only) {
       fp_list->set_genname(get_genname());
       block->set_code_section(GovernedSimple::CS_INLINE);
@@ -7275,6 +7402,10 @@ namespace Ttcn {
     DEBUG(level + 1, "Deterministic: %s", deterministic ? "true" : "false");
     if (prototype != PROTOTYPE_NONE)
       DEBUG(level + 1, "Prototype: %s", get_prototype_name());
+    if (exceptions != NULL) {
+      DEBUG(level + 1, "Exceptions:");
+      exceptions->dump(level + 2);
+    }
     //DEBUG(level + 1, "Statement block:");
     block->dump(level + 1);
   }
@@ -7727,6 +7858,13 @@ namespace Ttcn {
         (Type::CT_JSON != encoding_type && Type::CT_XER != encoding_type))) {
       error("Attribute 'printing' is only allowed for JSON and XER encoding functions.");
     }
+    
+    if (exceptions != NULL) {
+      exceptions->chk(this);
+      if (function_type != EXTFUNC_MANUAL) {
+        error("Exception list is only allowed for manually written external functions");
+      }
+    }
   }
 
   char *Def_ExtFunction::generate_code_encode(char *str)
@@ -8087,6 +8225,10 @@ namespace Ttcn {
         DEBUG(level + 2, "Encoding options: %s", encoding_options->c_str());
     }
     if (eb_list) eb_list->dump(level + 1);
+    if (exceptions != NULL) {
+      DEBUG(level + 1, "Exceptions:");
+      exceptions->dump(level + 2);
+    }
   }
   
   void Def_ExtFunction::generate_json_schema_ref(map<Type*, JSON_Tokenizer>& json_refs)
@@ -8242,6 +8384,9 @@ namespace Ttcn {
       return_type->chk_as_return_type(asstype == A_FUNCTION_RVAL,
         "n abstract function");
     }
+    if (exceptions != NULL) {
+      exceptions->chk(this);
+    }
     if (!semantic_check_only) {
       fp_list->set_genname(get_genname());
     }
@@ -8285,10 +8430,10 @@ namespace Ttcn {
   Def_Altstep::Def_Altstep(Identifier *p_id, FormalParList *p_fpl,
                            Reference *p_runs_on_ref, Reference *p_mtc_ref,
                            Reference *p_system_ref, StatementBlock *p_sb,
-                           AltGuards *p_ags)
+                           AltGuards *p_ags, Common::SignatureExceptions* p_exceptions)
     : Definition(A_ALTSTEP, p_id), fp_list(p_fpl), runs_on_ref(p_runs_on_ref),
       runs_on_type(0), mtc_ref(p_mtc_ref), mtc_type(0),
-      system_ref(p_system_ref), system_type(0), sb(p_sb), ags(p_ags)
+      system_ref(p_system_ref), system_type(0), sb(p_sb), ags(p_ags), exceptions(p_exceptions)
   {
     if (!p_fpl || !p_sb || !p_ags)
       FATAL_ERROR("Def_Altstep::Def_Altstep()");
@@ -8306,6 +8451,7 @@ namespace Ttcn {
     delete system_ref;
     delete sb;
     delete ags;
+    delete exceptions;
   }
 
   Def_Altstep *Def_Altstep::clone() const
@@ -8322,6 +8468,9 @@ namespace Ttcn {
     if (system_ref) system_ref->set_fullname(p_fullname + ".<system_type>");
     sb->set_fullname(p_fullname+".<block>");
     ags->set_fullname(p_fullname + ".<guards>");
+    if (exceptions != NULL) {
+      exceptions->set_fullname(p_fullname + ".<exceptions>");
+    }
   }
 
   void Def_Altstep::set_my_scope(Scope *p_scope)
@@ -8336,6 +8485,9 @@ namespace Ttcn {
     if (system_ref) system_ref->set_my_scope(&bridgeScope);
     sb->set_my_scope(fp_list);
     ags->set_my_scope(sb);
+    if (exceptions != NULL) {
+      exceptions->set_my_scope(&bridgeScope);
+    }
   }
 
   Type *Def_Altstep::get_RunsOnType()
@@ -8409,6 +8561,9 @@ namespace Ttcn {
       w_attrib_path->chk_global_attrib();
       w_attrib_path->chk_no_qualif();
     }
+    if (exceptions != NULL) {
+      exceptions->chk(this);
+    }
   }
 
   void Def_Altstep::generate_code(output_struct *target, bool)
@@ -8425,9 +8580,7 @@ namespace Ttcn {
 //      body = generate_code_debugger_function_init(body, this);
 //    }
     body = sb->generate_code(body, target->header.global_vars,
-      target->source.global_vars);
-    body = ags->generate_code_altstep(body, target->header.global_vars,
-      target->source.global_vars);
+      target->source.global_vars, ags);
     // generate a smart formal parameter list (omits unused parameter names)
     char *formal_par_list = fp_list->generate_code(memptystr());
     fp_list->generate_code_defval(target);
@@ -8570,6 +8723,10 @@ namespace Ttcn {
       DEBUG(level + 1, "System clause:");
       system_ref->dump(level + 2);
     }
+    if (exceptions != NULL) {
+      DEBUG(level + 1, "Exceptions:");
+      exceptions->dump(level + 2);
+    }
     /*
     DEBUG(level + 1, "Local definitions:");
     sb->dump(level + 2);
@@ -8711,7 +8868,9 @@ namespace Ttcn {
       body = generate_code_debugger_function_init(body, this);
     }
     body = mputprintf(body, "try {\n"
+      "%s"
       "TTCN_Runtime::begin_testcase(\"%s\", \"%s\", ",
+      oop_features ? "try {\n" : "",
       my_scope->get_scope_mod()->get_modid().get_dispname().c_str(),
       dispname_str);
     ComponentTypeBody *runs_on_body = runs_on_type->get_CompBody();
@@ -8724,10 +8883,14 @@ namespace Ttcn {
     body = block->generate_code(body, target->header.global_vars,
       target->source.global_vars);
     body = mputprintf(body,
+      "%s"
       "} catch (const TC_Error& tc_error) {\n"
       "} catch (const TC_End& tc_end) {\n"
       "TTCN_Logger::log_str(TTCN_FUNCTION, \"Test case %s was stopped.\");\n"
-      "}\n", dispname_str);
+      "}\n",
+      oop_features ? "} catch (const EXCEPTION_BASE& exc) {\n"
+      "TTCN_error(\"Unhandled exception: %s\", (const char*) exc.get_log());\n"
+      "}\n" : "", dispname_str);
     body = mputstr(body, "return TTCN_Runtime::end_testcase();\n");
     
     // smart formal parameter list (names of unused parameters are omitted)
@@ -9598,6 +9761,7 @@ namespace Ttcn {
         }
         // no break
       case A_VAR:
+      case A_EXCEPTION:
       case A_PAR_VAL_OUT:
       case A_PAR_VAL_INOUT:
         if (!is_template) asstype_correct = true;
@@ -10721,6 +10885,7 @@ namespace Ttcn {
       if(!t_par_ass) FATAL_ERROR("FormalParList::chk_activate_argument()");
       switch (t_par_ass->get_asstype()) {
       case Common::Assignment::A_VAR:
+      case Common::Assignment::A_EXCEPTION: // TODO: can exceptions be of 'default' type?
       case Common::Assignment::A_VAR_TEMPLATE:
       case Common::Assignment::A_TIMER:
         // it is not allowed to pass references of local variables or timers
@@ -11106,13 +11271,6 @@ namespace Ttcn {
         LazyFuzzyParamData::init(used_as_lvalue);
         LazyFuzzyParamData::generate_code(expr, val, my_scope, param_eval == LAZY_EVAL);
         LazyFuzzyParamData::clean();
-        if (val->get_valuetype() == Value::V_REFD) {
-          // check if the reference is a parameter, mark it as used if it is
-          Reference* r = dynamic_cast<Reference*>(val->get_reference());
-          if (r != NULL) {
-            r->ref_usage_found();
-          }
-        }
       } else {
         char* expr_expr = NULL;
         if (use_runtime_2 && TypeConv::needs_conv_refd(val)) {
@@ -11163,15 +11321,6 @@ namespace Ttcn {
         LazyFuzzyParamData::generate_code(expr, temp, gen_restriction_check, my_scope,
            param_eval == LAZY_EVAL);
         LazyFuzzyParamData::clean();
-        if (temp->get_DerivedRef() != NULL ||
-            temp->get_Template()->get_templatetype() == Template::TEMPLATE_REFD) {
-          // check if the reference is a parameter, mark it as used if it is
-          Reference* r = dynamic_cast<Reference*>(temp->get_DerivedRef() != NULL ?
-            temp->get_DerivedRef() : temp->get_Template()->get_reference());
-          if (r != NULL) {
-            r->ref_usage_found();
-          }
-        }
       } else {
         char* expr_expr = NULL;
         if (use_runtime_2 && TypeConv::needs_conv_refd(temp->get_Template())) {
@@ -11574,6 +11723,7 @@ namespace Ttcn {
         Common::Assignment *ass = par->get_Ref()->get_refd_assignment();
         switch (ass->get_asstype()) {
         case Common::Assignment::A_VAR:
+        case Common::Assignment::A_EXCEPTION:
         case Common::Assignment::A_PAR_VAL_IN:
         case Common::Assignment::A_PAR_VAL_OUT:
         case Common::Assignment::A_PAR_VAL_INOUT:

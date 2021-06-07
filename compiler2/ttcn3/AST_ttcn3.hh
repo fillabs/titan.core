@@ -416,8 +416,8 @@ namespace Ttcn {
       * On further runs the cached expression is returned.*/
     virtual void generate_code_cached (expression_struct_t *expr);
     /** Lets the referenced assignment object know, that the reference is used
-      * at least once (only relevant for formal parameters and external constants). */
-    void ref_usage_found();
+      * at least once (only relevant for formal parameters, external constants and exceptions). */
+    static void ref_usage_found(Common::Assignment *ass);
     /** Appends a new field subref for the union type's @default alternative at the end of the reference.
       * Used when the reference points to a union value or template in a context where a union is not allowed.
       * This attempts to use the union's default alternative instead. */
@@ -1166,11 +1166,13 @@ namespace Ttcn {
    * Def_Var class represents a variable definition.
    */
   class Def_Var : public Definition {
-  private:
+  protected:
     Type *type;
+  
+  private:
     /** the initial value: optional and maybe incomplete */
     Value *initial_value;
-
+    
     /// Copy constructor disabled
     Def_Var(const Def_Var& p);
     /// %Assignment disabled
@@ -1190,6 +1192,22 @@ namespace Ttcn {
     virtual void ilt_generate_code(ILT *ilt);
     virtual char *generate_code_init_comp(char *str, Definition *base_defn);
     virtual void dump_internal(unsigned level) const;
+  };
+  
+  class Def_Exception : public Def_Var {
+  private:
+    /** Indicates whether the exception is used in the catch block. */
+    bool usage_found;
+        
+    /// Copy constructor disabled
+    Def_Exception(const Def_Exception& p);
+    /// %Assignment disabled
+    Def_Exception& operator=(const Def_Exception& p);
+    
+  public:
+    Def_Exception(Identifier* p_id, Type* p_type);
+    void set_usage_found() { usage_found = true; }
+    virtual char* generate_code_str(char *str);
   };
 
   /**
@@ -1370,6 +1388,7 @@ namespace Ttcn {
     /** optional template restriction on return template value */
     template_restriction_t template_restriction;
     bool final;
+    Common::SignatureExceptions* exceptions;
 
     static asstype_t determine_asstype(bool is_external, bool has_return_type,
       bool returns_template);
@@ -1390,7 +1409,8 @@ namespace Ttcn {
      */
     Def_Function_Base(bool is_external, Identifier *p_id,
       FormalParList *p_fpl, Type *p_return_type, bool returns_template,
-      template_restriction_t p_template_restriction, bool p_final);
+      template_restriction_t p_template_restriction, bool p_final, 
+      Common::SignatureExceptions* p_exceptions);
     virtual ~Def_Function_Base();
     virtual void set_fullname(const string& p_fullname);
     virtual void set_my_scope(Scope *p_scope);
@@ -1488,7 +1508,7 @@ namespace Ttcn {
                  Reference *p_system_ref, Reference *p_port_ref,
                  Type *p_return_type, bool returns_template,
                  template_restriction_t p_template_restriction,
-                 bool p_final, StatementBlock *p_block);
+                 bool p_final, Common::SignatureExceptions* p_exceptions, StatementBlock *p_block);
     virtual ~Def_Function();
     virtual Def_Function *clone() const;
     virtual void set_fullname(const string& p_fullname);
@@ -1584,9 +1604,10 @@ namespace Ttcn {
      */
     Def_ExtFunction(bool p_deterministic, Identifier *p_id, FormalParList *p_fpl,
       Type *p_return_type, bool returns_template,
-      template_restriction_t p_template_restriction, bool p_final, bool p_ext_keyword)
+      template_restriction_t p_template_restriction, bool p_final,
+      Common::SignatureExceptions* p_exceptions, bool p_ext_keyword)
       : Def_Function_Base(true, p_id, p_fpl, p_return_type, returns_template,
-          p_template_restriction, p_final),
+          p_template_restriction, p_final, p_exceptions),
       function_type(EXTFUNC_MANUAL), encoding_type(Type::CT_UNDEF),
       encoding_options(0), eb_list(0), printing(0),
       deterministic(p_deterministic), ext_keyword(p_ext_keyword) { }
@@ -1629,9 +1650,9 @@ namespace Ttcn {
   public:
     Def_AbsFunction(bool p_deterministic, Identifier* p_id, FormalParList* p_fpl,
       Type* p_return_type, bool returns_template,
-      template_restriction_t p_template_restriction)
+      template_restriction_t p_template_restriction, Common::SignatureExceptions* p_exceptions)
     : Def_Function_Base(false, p_id, p_fpl, p_return_type, returns_template,
-      p_template_restriction, false) { }
+      p_template_restriction, false, p_exceptions) { }
     virtual ~Def_AbsFunction();
     virtual Definition* clone() const;
     virtual void chk();
@@ -1672,6 +1693,7 @@ namespace Ttcn {
     Type *system_type;
     StatementBlock *sb; /**< contains the local definitions */
     AltGuards *ags;
+    Common::SignatureExceptions* exceptions;
 
     NameBridgingScope bridgeScope;
 
@@ -1683,7 +1705,7 @@ namespace Ttcn {
     Def_Altstep(Identifier *p_id, FormalParList *p_fpl,
                 Reference *p_runs_on_ref, Reference *p_mtc_ref,
                 Reference *p_system_ref, StatementBlock *p_sb,
-                AltGuards *p_ags);
+                AltGuards *p_ags, Common::SignatureExceptions* p_exceptions);
     virtual ~Def_Altstep();
     virtual Def_Altstep *clone() const;
     virtual void set_fullname(const string& p_fullname);

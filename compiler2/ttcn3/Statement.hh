@@ -80,7 +80,9 @@ namespace Ttcn {
     enum exception_handling_t {
       EH_NONE, /**< this is a normal statement block */
       EH_TRY,  /**< this is a try{} block */
-      EH_CATCH /**< this is a catch(exc_str){} block */
+      EH_CATCH, /**< this is a catch(exc_str){} block */
+      EH_OOP_CATCH, /**< this is a catch block from the object oriented extension */
+      EH_OOP_FINALLY /**< this is a finally block from the object oriented extension */
     };
 
   private:
@@ -98,6 +100,13 @@ namespace Ttcn {
     Definition *my_def;
     /** */
     exception_handling_t exception_handling;
+    /** List of catch blocks at the end of this statement block (OOP feature) */
+    vector<StatementBlock> catch_blocks;
+    /** Optional finally block at the end of this statement block (OOP feature) */
+    StatementBlock* finally_block;
+    /** List of local definitions referenced inside this block
+      * (only for the finally block of a normal statement block) */
+    map<Common::Assignment*, void> refd_local_defs; // elements not owned
 
     StatementBlock(const StatementBlock& p);
     StatementBlock& operator=(const StatementBlock& p);
@@ -126,6 +135,12 @@ namespace Ttcn {
     void set_my_def(Definition *p_def);
     void set_my_ags(AltGuards *p_ags);
     void set_my_laic_stmt(AltGuards *p_ags, Statement *p_loop_stmt);
+    void add_catch_block(StatementBlock* p_catch);
+    void set_finally_block(StatementBlock* p_finally);
+    void add_refd_local_def(Common::Assignment* p_def);
+    boolean is_in_finally_block() const;
+    StatementBlock* get_finally_block();
+    boolean is_empty() const;
     returnstatus_t has_return() const;
     /** Used when generating code for interleaved statement. If has
      *  not recv stmt, then the general code generation can be used
@@ -164,8 +179,10 @@ namespace Ttcn {
       * '@update' statements may need to generate code into the global variables
       * sections of the module's header and source file, so pointer references to
       * these strings are passed to every statement block that may contain an
-      * '@update' statement. */
-    char* generate_code(char *str, char*& def_glob_vars, char*& src_glob_vars);
+      * '@update' statement. 
+      * Also generates code for the alt-guards if this is the statement block of an altstep. */
+    char* generate_code(char *str, char*& def_glob_vars, char*& src_glob_vars, AltGuards* alt_guards = NULL);
+    char* generate_code_finally(char* str, char*& def_glob_vars, char*& src_glob_vars);
     void ilt_generate_code(ILT *ilt);
 
     virtual void set_parent_path(WithAttribPath* p_path);
@@ -273,7 +290,8 @@ namespace Ttcn {
       /* update statement */
       S_UPDATE, // update_op
       /* encoding-related statements */
-      S_SETENCODE // setencode_op
+      S_SETENCODE, // setencode_op
+      S_RAISE_OOP // raise_op (this is the raise statement from the object oriented extension)
     };
 
     enum component_t {
@@ -512,6 +530,15 @@ namespace Ttcn {
         Type* type;
         Value* encoding;
       } setencode_op;
+      
+      struct {
+        bool checked;
+        union {
+          TemplateInstance* ti;
+          Value* v;
+        };
+      } raise_op;
+       /**< S_RAISE_OOP */
     };
 
     Statement(const Statement& p); ///< copy disabled
@@ -642,6 +669,8 @@ namespace Ttcn {
     Statement(statementtype_t p_st, Value* p_val, TemplateInstance* p_ti);
     /** Constructor used by S_SETENCODE */
     Statement(statementtype_t p_st, Type* p_type, Value* p_encoding);
+    /** Constructor used by S_RAISE_OOP */
+    Statement(statementtype_t p_st, TemplateInstance* p_ti);
     virtual ~Statement();
     virtual Statement* clone() const;
     virtual void dump(unsigned int level) const;
@@ -827,6 +856,7 @@ namespace Ttcn {
     void chk_update();
     void chk_setstate();
     void chk_setencode();
+    void chk_raise_oop();
   public:
     /** Sets the code section selector of all embedded values and
      *  templates to \a p_code_section. */
@@ -902,6 +932,7 @@ namespace Ttcn {
     char* generate_code_update(char *str, char*& def_glob_vars, char*& src_glob_vars);
     char* generate_code_setstate(char *str);
     char* generate_code_setencode(char* str);
+    char* generate_code_raise_oop(char* str);
     /** used for receive, check-receive, trigger */
     void generate_code_expr_receive(expression_struct *expr,
       const char *opname);

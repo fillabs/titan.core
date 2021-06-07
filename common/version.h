@@ -10,6 +10,7 @@
  *   Baranyi, Botond
  *   Beres, Szabolcs
  *   Delic, Adam
+ *   Knapp, Adam
  *   Kovacs, Ferenc
  *   Pandi, Krisztian
  *   Raduly, Csaba
@@ -25,7 +26,7 @@
 /* Version numbers */
 #define TTCN3_MAJOR 7
 #define TTCN3_MINOR 2
-#define TTCN3_PATCHLEVEL 0 //0-> x=A, 1-> x=B, ...
+#define TTCN3_PATCHLEVEL 2 //0-> x=A, 1-> x=B, ...
 //#define TTCN3_BUILDNUMBER 0  //0=R5x, 1=R5x01, 2=R5x02, ...
 
 /* The aggregated version number must be set manually since some stupid
@@ -38,7 +39,7 @@
  * TTCN3_VERSION = TTCN3_MAJOR * 1000000 + TTCN3_MINOR * 10000 +
  *                 TTCN3_PATCHLEVEL * 100 + TTCN3_BUILDNUMBER
  */
-#define TTCN3_VERSION 70200
+#define TTCN3_VERSION 70202
 
 /* A monotonically increasing version number.
  * An official release is deemed to have the highest possible build number (99)
@@ -162,5 +163,8 @@ public:
 
 #undef FIELD_NAME
 #undef FN
+
+/* Enum to identify version types */
+enum version_t { UNKNOWN, LEGACY_CRL, LEGACY_CAX, DOT_SEPARATED /*current*/ };
 
 #endif
